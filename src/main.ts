@@ -15,7 +15,7 @@ async function bootstrap() {
   );
   const dataSource = app.get(DataSource);
   const configService = app.get(ConfigService);
-  const port = configService.get<number>('PORT')!;
+  const port = configService.get<number>('PORT') ?? 3000;
 
   if (dataSource.isInitialized) {
     console.log(`Connected to database: ${dataSource.options.database}`);
