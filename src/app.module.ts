@@ -10,6 +10,7 @@ import { FilesModule } from './files/files.module';
 import { MailerModule } from './mailer/mailer.module';
 import { RescueRequestsModule } from './rescue-requests/rescue-requests.module';
 import { MissingPersonsModule } from './missing-persons/missing-persons.module';
+import { CommunityPostsModule } from './community-posts/community-posts.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { MissingPersonsModule } from './missing-persons/missing-persons.module';
     MailerModule,
     RescueRequestsModule,
     MissingPersonsModule,
+    CommunityPostsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
