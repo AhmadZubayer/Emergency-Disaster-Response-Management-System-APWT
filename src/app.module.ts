@@ -7,6 +7,7 @@ import { databaseConfig } from './config/database.config';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
+import { MailerModule } from './mailer/mailer.module';
  
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { FilesModule } from './files/files.module';
     AuthModule,
     UsersModule,
     FilesModule,
+    MailerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

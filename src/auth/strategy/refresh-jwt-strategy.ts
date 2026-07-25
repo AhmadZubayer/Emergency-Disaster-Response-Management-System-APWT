@@ -4,9 +4,11 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
 import * as bcrypt from 'bcrypt';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 import { JwtPayload } from '../types/jwt-payload.type';
-import { UsersService } from 'src/users/users.service';
+import { Auth } from '../entities/auth.entity';
 
 @Injectable()
 export class RefreshJwtStrategy extends PassportStrategy(
@@ -15,7 +17,7 @@ export class RefreshJwtStrategy extends PassportStrategy(
 ) {
   constructor(
     private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
+    @InjectRepository(Auth) private readonly authRepo: Repository<Auth>,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -34,15 +36,17 @@ export class RefreshJwtStrategy extends PassportStrategy(
 
     const refreshToken = authHeader.replace('Bearer ', '');
 
-    const user = await this.usersService.getUserById(payload.id);
+    const authRecord = await this.authRepo.findOne({
+      where: { user_id: payload.id },
+    });
 
-    if (!user || !user.refresh_token) {
+    if (!authRecord || !authRecord.refresh_token) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     const isRefreshTokenMatching = await bcrypt.compare(
       refreshToken,
-      user.refresh_token,
+      authRecord.refresh_token,
     );
 
     if (!isRefreshTokenMatching) {
@@ -50,9 +54,9 @@ export class RefreshJwtStrategy extends PassportStrategy(
     }
 
     return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
+      id: authRecord.user_id,
+      email: authRecord.email,
+      role: authRecord.role,
     };
   }
 }

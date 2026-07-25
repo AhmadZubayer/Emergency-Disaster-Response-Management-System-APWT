@@ -13,6 +13,11 @@ import type { StringValue } from 'ms';
 import { RolesGuard } from './guards/roles.guard';
 import { JwtTokenService } from './jwt-token.service';
 
+import { MailerModule } from 'src/mailer/mailer.module';
+
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Auth } from './entities/auth.entity';
+
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -27,7 +32,9 @@ import { JwtTokenService } from './jwt-token.service';
         },
       }),
     }),
+    TypeOrmModule.forFeature([Auth]),
     UsersModule,
+    MailerModule,
   ],
   controllers: [AuthController],
   providers: [

@@ -19,11 +19,8 @@ export class UsersService {
   async createUser(createUsersDto: RegisterUserDto): Promise<Users> {
     const user = this.usersRepo.create({
       name: createUsersDto.name,
-      email: createUsersDto.email,
       phone: createUsersDto.phoneNumber,
-      password: createUsersDto.password,
       location: createUsersDto.location,
-      role: USER_ROLE.USER,
     });
 
     return await this.usersRepo.save(user);
@@ -34,15 +31,7 @@ export class UsersService {
       select: {
         id: true,
         name: true,
-        email: true,
-      },
-    });
-  }
-
-  async getUserByEmail(email: string): Promise<Users | null> {
-    return await this.usersRepo.findOne({
-      where: {
-        email: email,
+        phone: true,
       },
     });
   }
@@ -52,41 +41,10 @@ export class UsersService {
       where: {
         id: id,
       },
+      relations: {
+        auth: true,
+      },
     });
-  }
-
-  async updateUser(id: string, updateUsersDto: any): Promise<Users> {
-    const user = await this.usersRepo.findOne({
-      where: { id: id },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User Not Found');
-    }
-
-    Object.assign(user, updateUsersDto);
-    return await this.usersRepo.save(user);
-  }
-
-  async deleteUser(id: string): Promise<string> {
-    const result = await this.usersRepo.delete(id);
-    if (result.affected == 0) {
-      throw new NotFoundException('User Not Found. meow');
-    }
-
-    return `User Deleted Successfully. id: ${id} `;
-  }
-
-  async updateRefreshToken(id: string, refreshToken: string | null): Promise<Users> {
-    const user = await this.getUserById(id);
-
-    if (!user) {
-      throw new NotFoundException('User Not Found');
-    }
-
-    user.refresh_token = refreshToken;
-
-    return await this.usersRepo.save(user);
   }
 
   async updateProfile(
