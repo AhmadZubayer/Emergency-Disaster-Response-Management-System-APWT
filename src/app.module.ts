@@ -8,7 +8,9 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { MailerModule } from './mailer/mailer.module';
- 
+import { RescueRequestsModule } from './rescue-requests/rescue-requests.module';
+import { MissingPersonsModule } from './missing-persons/missing-persons.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -23,6 +25,8 @@ import { MailerModule } from './mailer/mailer.module';
     UsersModule,
     FilesModule,
     MailerModule,
+    RescueRequestsModule,
+    MissingPersonsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
