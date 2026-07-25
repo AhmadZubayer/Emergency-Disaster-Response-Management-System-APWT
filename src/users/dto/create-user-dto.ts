@@ -4,7 +4,9 @@ import {
   IsOptional,
   IsString,
   IsNumber,
+  ValidateNested,
 } from 'class-validator';
+import { AddressDto } from './address.dto';
 
 export class CreateUsersDto {
   @IsOptional()
@@ -20,8 +22,9 @@ export class CreateUsersDto {
   phone?: string;
 
   @IsOptional()
-  @IsString()
-  location?: string;
+  @ValidateNested()
+  @Type(() => AddressDto)
+  address?: AddressDto;
 
   @IsOptional()
   @Type(() => Number)
