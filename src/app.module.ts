@@ -11,6 +11,7 @@ import { MailerModule } from './mailer/mailer.module';
 import { RescueRequestsModule } from './rescue-requests/rescue-requests.module';
 import { MissingPersonsModule } from './missing-persons/missing-persons.module';
 import { CommunityPostsModule } from './community-posts/community-posts.module';
+import { DonationsModule } from './donations/donations.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { CommunityPostsModule } from './community-posts/community-posts.module';
     RescueRequestsModule,
     MissingPersonsModule,
     CommunityPostsModule,
+    DonationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
