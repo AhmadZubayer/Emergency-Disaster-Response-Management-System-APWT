@@ -1,10 +1,13 @@
+import { Type } from 'class-transformer';
 import {
   IsEmail,
   IsNotEmpty,
   IsOptional,
   IsString,
   Matches,
+  ValidateNested,
 } from 'class-validator';
+import { AddressDto } from 'src/users/dto/address.dto';
 
 export class RegisterUserDto {
   @IsString()
@@ -29,6 +32,7 @@ export class RegisterUserDto {
   password: string;
 
   @IsOptional()
-  @IsString()
-  location?: string;
+  @ValidateNested()
+  @Type(() => AddressDto)
+  address?: AddressDto;
 }

@@ -20,7 +20,7 @@ export class UsersService {
     const user = this.usersRepo.create({
       name: createUsersDto.name,
       phone: createUsersDto.phoneNumber,
-      location: createUsersDto.location,
+      address: createUsersDto.address,
     });
 
     return await this.usersRepo.save(user);
