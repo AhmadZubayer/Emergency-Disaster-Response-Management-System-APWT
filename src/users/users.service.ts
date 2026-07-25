@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Users } from './entities/users.entity';
 import { Repository } from 'typeorm';
@@ -17,6 +21,14 @@ export class UsersService {
   ) {}
 
   async createUser(createUsersDto: RegisterUserDto): Promise<Users> {
+    const existingPhone = await this.usersRepo.findOne({
+      where: { phone: createUsersDto.phoneNumber },
+    });
+
+    if (existingPhone) {
+      throw new BadRequestException('Phone number is already registered');
+    }
+
     const user = this.usersRepo.create({
       name: createUsersDto.name,
       phone: createUsersDto.phoneNumber,
