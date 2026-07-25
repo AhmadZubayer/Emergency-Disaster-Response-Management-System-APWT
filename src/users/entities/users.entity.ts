@@ -1,5 +1,5 @@
-import type { UserRole } from 'src/auth/types/user-roles.type';
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Auth } from 'src/auth/entities/auth.entity';
 
 @Entity('users')
 export class Users {
@@ -10,22 +10,10 @@ export class Users {
   name: string;
 
   @Column({ type: 'varchar', unique: true })
-  email: string;
-
-  @Column({ type: 'varchar', unique: true })
   phone: string;
 
   @Column({ type: 'varchar', nullable: true })
   photo_url: string;
-
-  @Column({ type: 'varchar' })
-  password: string;
-
-  @Column({ type: 'varchar', default: 'user' })
-  role: UserRole;
-
-  @Column({ type: 'varchar', nullable: true })
-  refresh_token: string | null;
 
   @Column({ type: 'varchar', nullable: true })
   location: string;
@@ -45,8 +33,8 @@ export class Users {
   @Column({ type: 'text', nullable: true })
   medical_information: string;
 
-//   @Column()
-//   is_verified: boolean;
+  @OneToOne(() => Auth, (auth) => auth.user)
+  auth: Auth;
 
   @CreateDateColumn()
   created_at: Date;
