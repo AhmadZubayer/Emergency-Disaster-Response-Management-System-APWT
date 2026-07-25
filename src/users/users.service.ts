@@ -110,4 +110,68 @@ export class UsersService {
     user.is_safe = !user.is_safe;
     return await this.usersRepo.save(user);
   }
+
+  async updateProfile(
+    id: string,
+    updateUserProfileDto: UpdateUserProfileDto,
+    file?: Express.Multer.File,
+  ): Promise<Users> {
+    const user = await this.usersRepo.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User Not Found');
+    }
+
+    if (file) {
+      if (user.photo_url) {
+        await this.filesService.deleteFile(user.photo_url);
+      }
+      const customFileName = `${id}_profile_${Date.now()}`;
+      const urls = await this.filesService.saveFiles([file], {
+        subFolder: '/user-profile-pictures',
+        allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png'],
+        customFileName: customFileName,
+      });
+      user.photo_url = urls[0];
+    }
+
+    Object.assign(user, updateUserProfileDto);
+    return await this.usersRepo.save(user);
+  }
+
+  async completeProfile(
+    id: string,
+    completeUserProfileDto: CompleteUserProfileDto,
+    file?: Express.Multer.File,
+  ): Promise<Users> {
+    const user = await this.usersRepo.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User Not Found');
+    }
+
+    if (file) {
+      if (user.photo_url) {
+        await this.filesService.deleteFile(user.photo_url);
+      }
+      const customFileName = `${id}_profile_${Date.now()}`;
+      const urls = await this.filesService.saveFiles([file], {
+        subFolder: '/user-profile-pictures',
+        allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png'],
+        customFileName: customFileName,
+      });
+      user.photo_url = urls[0];
+    }
+
+    Object.assign(user, completeUserProfileDto);
+    return await this.usersRepo.save(user);
+  }
+
+  async toggleIsSafe(id: string): Promise<Users> {
+    const user = await this.usersRepo.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User Not Found');
+    }
+
+    user.is_safe = !user.is_safe;
+    return await this.usersRepo.save(user);
+  }
 }
