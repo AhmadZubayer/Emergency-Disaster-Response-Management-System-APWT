@@ -8,6 +8,9 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { MailerService } from 'src/mailer/mailer.service';
+import { StripePaymentException } from 'src/common/exceptions/stripe-payment.exception';
+import { CustomLoggerService } from 'src/common/logger/logger.service';
+import { AuditService } from 'src/common/audit/audit.service';
 import {
   DonationApplication,
   DonationCampaign,
@@ -27,6 +30,7 @@ import {
 
 @Injectable()
 export class DonationsService {
+  private readonly logger = new CustomLoggerService(DonationsService.name);
   private stripe: Stripe;
 
   constructor(
@@ -38,6 +42,7 @@ export class DonationsService {
     private readonly applicationRepository: Repository<DonationApplication>,
     private readonly configService: ConfigService,
     private readonly mailerService: MailerService,
+    private readonly auditService: AuditService,
   ) {
     const stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY');
     if (stripeSecretKey) {
@@ -95,7 +100,14 @@ export class DonationsService {
       status: TransactionStatus.PENDING,
     });
 
+    this.auditService.setCreated(transaction, userId);
     await this.transactionRepository.save(transaction);
+
+    this.logger.logBusinessEvent('Donation initiated', 'DonationsService', {
+      transactionId,
+      campaignId: campaign.id,
+      amount: dto.amount,
+    });
 
     const baseUrl =
       this.configService.get<string>('APP_URL') || 'http://localhost:3000';
@@ -106,44 +118,56 @@ export class DonationsService {
       if (stripeSecretKey) {
         this.stripe = new Stripe(stripeSecretKey);
       } else {
+        this.logger.logError('Stripe secret key is missing in config');
         throw new BadRequestException(
           'Stripe secret key is not configured in .env (STRIPE_SECRET_KEY)',
         );
       }
     }
 
-    const session = await this.stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [
-        {
-          price_data: {
-            currency: 'usd',
-            product_data: {
-              name: `Donation: ${campaign.title}`,
-              description: `Emergency fund contribution reference: ${transactionId}`,
+    try {
+      const session = await this.stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `Donation: ${campaign.title}`,
+                description: `Emergency fund contribution reference: ${transactionId}`,
+              },
+              unit_amount: Math.round(dto.amount * 100),
             },
-            unit_amount: Math.round(dto.amount * 100),
+            quantity: 1,
           },
-          quantity: 1,
+        ],
+        mode: 'payment',
+        success_url: `${baseUrl}/donations/payment/success?session_id={CHECKOUT_SESSION_ID}&tx_id=${transactionId}`,
+        cancel_url: `${baseUrl}/donations/payment/cancel?tx_id=${transactionId}`,
+        metadata: {
+          transaction_id: transactionId,
+          campaign_id: campaign.id,
         },
-      ],
-      mode: 'payment',
-      success_url: `${baseUrl}/donations/payment/success?session_id={CHECKOUT_SESSION_ID}&tx_id=${transactionId}`,
-      cancel_url: `${baseUrl}/donations/payment/cancel?tx_id=${transactionId}`,
-      metadata: {
+      });
+
+      transaction.gateway_tx_id = session.id;
+      this.auditService.setUpdated(transaction, userId);
+      await this.transactionRepository.save(transaction);
+
+      return {
+        message: 'Donation session created successfully',
+        checkout_url: session.url,
         transaction_id: transactionId,
-        campaign_id: campaign.id,
-      },
-    });
-
-    transaction.gateway_tx_id = session.id;
-    await this.transactionRepository.save(transaction);
-
-    return {
-      message: 'Donation session created successfully',
-      checkout_url: session.url,
-      transaction_id: transactionId,
-    };
+      };
+    } catch (error: any) {
+      this.logger.logError('Stripe payment failed', error.stack, 'DonationsService');
+      transaction.status = TransactionStatus.FAILED;
+      await this.transactionRepository.save(transaction);
+      if (error && typeof error === 'object' && error instanceof Stripe.errors.StripeError) {
+        throw new StripePaymentException(error.message, error.statusCode || 400);
+      }
+      throw error;
+    }
   }
 
   async handlePaymentSuccess(sessionId: string, txId: string) {
@@ -172,17 +196,29 @@ export class DonationsService {
     }
 
     if (sessionId && this.stripe) {
-      const session = await this.stripe.checkout.sessions.retrieve(sessionId);
-      if (session.payment_status !== 'paid') {
-        transaction.status = TransactionStatus.FAILED;
-        await this.transactionRepository.save(transaction);
-        throw new BadRequestException('Payment was not completed on Stripe');
+      try {
+        const session = await this.stripe.checkout.sessions.retrieve(sessionId);
+        if (session.payment_status !== 'paid') {
+          transaction.status = TransactionStatus.FAILED;
+          await this.transactionRepository.save(transaction);
+          this.logger.logWarning(`Stripe session unpaid for transaction ${txId}`);
+          throw new BadRequestException('Payment was not completed on Stripe');
+        }
+      } catch (error: any) {
+        this.logger.logError('Stripe session verification failed', error.stack, 'DonationsService');
+        throw error;
       }
     }
 
     transaction.status = TransactionStatus.COMPLETED;
     transaction.paid_at = new Date();
+    this.auditService.setUpdated(transaction, transaction.user_id);
     await this.transactionRepository.save(transaction);
+
+    this.logger.logBusinessEvent('Donation completed', 'DonationsService', {
+      transactionId: transaction.transaction_id,
+      amount: transaction.amount,
+    });
 
     const campaign = await this.campaignRepository.findOne({
       where: { id: transaction.campaign_id },
@@ -190,6 +226,7 @@ export class DonationsService {
     if (campaign) {
       campaign.raised_amount =
         Number(campaign.raised_amount) + Number(transaction.amount);
+      this.auditService.setUpdated(campaign, transaction.user_id);
       await this.campaignRepository.save(campaign);
     }
 
@@ -202,8 +239,8 @@ export class DonationsService {
           campaign?.title || 'Relief Fund',
           transaction.transaction_id,
         );
-      } catch (error) {
-        console.error('Failed to send donation receipt email:', error);
+      } catch (error: any) {
+        this.logger.logError('Failed to send donation receipt email', error?.stack, 'DonationsService');
       }
     }
 
@@ -221,6 +258,7 @@ export class DonationsService {
     });
     if (transaction && transaction.status === TransactionStatus.PENDING) {
       transaction.status = TransactionStatus.CANCELLED;
+      this.auditService.setUpdated(transaction, transaction.user_id);
       await this.transactionRepository.save(transaction);
     }
     return {
@@ -249,7 +287,16 @@ export class DonationsService {
       status: ApplicationStatus.PENDING,
     });
 
-    return this.applicationRepository.save(application);
+    this.auditService.setCreated(application, userId);
+    const savedApp = await this.applicationRepository.save(application);
+
+    this.logger.logBusinessEvent('Aid application submitted', 'DonationsService', {
+      applicationId: savedApp.id,
+      campaignId,
+      userId,
+    });
+
+    return savedApp;
   }
 
   private formatApplication(app: DonationApplication) {
@@ -315,6 +362,7 @@ export class DonationsService {
     application.status = dto.status;
     application.reviewed_by_user_id = reviewerId;
     application.reviewed_at = new Date();
+    this.auditService.setUpdated(application, reviewerId);
 
     if (dto.status === ApplicationStatus.APPROVED) {
       application.approved_amount = dto.approved_amount ?? null;
@@ -338,6 +386,7 @@ export class DonationsService {
         paid_at: new Date(),
       });
 
+      this.auditService.setCreated(receiveTx, reviewerId);
       await this.transactionRepository.save(receiveTx);
 
       const applicantEmail = application.applicant?.auth?.email;
@@ -350,8 +399,8 @@ export class DonationsService {
             application.campaign?.title || 'Emergency Fund',
             application.payout_details,
           );
-        } catch (err) {
-          console.error('Failed to send aid approval email:', err);
+        } catch (err: any) {
+          this.logger.logError('Failed to send aid approval email', err?.stack, 'DonationsService');
         }
       }
     }

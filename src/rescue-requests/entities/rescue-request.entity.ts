@@ -1,13 +1,12 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
   JoinColumn,
 } from 'typeorm';
 import { Users } from 'src/users/entities/users.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 
 export enum RescueStatus {
   PENDING = 'PENDING',
@@ -26,7 +25,7 @@ export enum UrgencyLevel {
 }
 
 @Entity('rescue_requests')
-export class RescueRequest {
+export class RescueRequest extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -77,10 +76,4 @@ export class RescueRequest {
 
   @Column({ type: 'varchar', nullable: true })
   assigned_rescuer_id: string | null;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

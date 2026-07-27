@@ -1,16 +1,15 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   OneToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { Auth } from 'src/auth/entities/auth.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import { Address } from './address.entity';
 
 @Entity('users')
-export class Users {
+export class Users extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -46,10 +45,4 @@ export class Users {
 
   @OneToOne(() => Auth, (auth) => auth.user)
   auth: Auth;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

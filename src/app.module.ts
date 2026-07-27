@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
+import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
@@ -14,6 +15,7 @@ import { MissingPersonsModule } from './missing-persons/missing-persons.module';
 import { CommunityPostsModule } from './community-posts/community-posts.module';
 import { DonationsModule } from './donations/donations.module';
 import { DisasterModule } from './disaster/disaster.module';
+import { VolunteersModule } from './volunteers/volunteers.module';
 
 @Module({
   imports: [
@@ -23,6 +25,7 @@ import { DisasterModule } from './disaster/disaster.module';
       inject: [ConfigService],
       useFactory: databaseConfig,
     }),
+    CommonModule,
     AuthModule,
     UsersModule,
     FilesModule,
@@ -33,6 +36,7 @@ import { DisasterModule } from './disaster/disaster.module';
     CommunityPostsModule,
     DonationsModule,
     DisasterModule,
+    VolunteersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

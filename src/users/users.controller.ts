@@ -13,6 +13,7 @@ import { JwtGuard } from 'src/auth/guards/access-jwt-guard';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { CompleteUserProfileDto } from './dto/complete-user-profile.dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 
 @Controller('users')
 export class UsersController {
@@ -21,6 +22,7 @@ export class UsersController {
   @Patch('update-profile')
   @UseGuards(JwtGuard)
   @UseInterceptors(FilesInterceptor('file'))
+  @ResponseMessage('User profile updated successfully')
   async updateProfile(
     @CurrentUser('id') userId: string,
     @Body() updateUserProfileDto: UpdateUserProfileDto,
@@ -37,6 +39,7 @@ export class UsersController {
   @Put('complete-profile')
   @UseGuards(JwtGuard)
   @UseInterceptors(FilesInterceptor('file'))
+  @ResponseMessage('User profile completed successfully')
   async completeProfile(
     @CurrentUser('id') userId: string,
     @Body() completeUserProfileDto: CompleteUserProfileDto,
@@ -52,6 +55,7 @@ export class UsersController {
 
   @Patch('is-safe')
   @UseGuards(JwtGuard)
+  @ResponseMessage('Safety status updated successfully')
   async toggleIsSafe(@CurrentUser('id') userId: string) {
     return await this.usersService.toggleIsSafe(userId);
   }

@@ -1,19 +1,18 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { Users } from 'src/users/entities/users.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import { DonationCampaign } from './campaign.entity';
 import { DonationApplication } from './application.entity';
 import { PaymentGateway, TransactionStatus, TransactionType } from '../enums';
 
 @Entity('donation_transactions')
-export class DonationTransaction {
+export class DonationTransaction extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -78,10 +77,4 @@ export class DonationTransaction {
 
   @Column({ type: 'timestamp', nullable: true })
   paid_at: Date | null;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

@@ -21,6 +21,7 @@ import { ReactPostDto } from './dto/react-post.dto';
 import { ReportPostDto } from './dto/report-post.dto';
 import { JwtGuard } from 'src/auth/guards/access-jwt-guard';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
+import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 
 @Controller('community-posts')
 export class CommunityPostsController {
@@ -29,6 +30,7 @@ export class CommunityPostsController {
   ) {}
 
   @Get()
+  @ResponseMessage('Community posts retrieved successfully')
   async findAll(
     @Query('search') search?: string,
     @Query('sort') sort?: 'asc' | 'desc',
@@ -38,11 +40,13 @@ export class CommunityPostsController {
   }
 
   @Get(':id')
+  @ResponseMessage('Community post details retrieved successfully')
   async findOne(@Param('id') id: string, @Query('userId') userId?: string) {
     return await this.communityPostsService.getPostById(id, userId);
   }
 
   @Get(':id/comments')
+  @ResponseMessage('Post comments retrieved successfully')
   async getComments(@Param('id') id: string) {
     return await this.communityPostsService.getCommentsByPostId(id);
   }
@@ -50,6 +54,7 @@ export class CommunityPostsController {
   @Post()
   @UseGuards(JwtGuard)
   @UseInterceptors(FilesInterceptor('files'))
+  @ResponseMessage('Community post created successfully')
   async create(
     @CurrentUser('id') authorId: string,
     @Body() dto: CreateCommunityPostDto,
@@ -61,6 +66,7 @@ export class CommunityPostsController {
   @Patch(':id')
   @UseGuards(JwtGuard)
   @UseInterceptors(FilesInterceptor('files'))
+  @ResponseMessage('Community post updated successfully')
   async update(
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
@@ -79,6 +85,7 @@ export class CommunityPostsController {
 
   @Patch(':id/status')
   @UseGuards(JwtGuard)
+  @ResponseMessage('Post status updated successfully')
   async updateStatus(
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
@@ -95,12 +102,14 @@ export class CommunityPostsController {
 
   @Patch(':id/bump')
   @UseGuards(JwtGuard)
+  @ResponseMessage('Post bumped successfully')
   async bump(@Param('id') id: string, @CurrentUser('id') userId: string) {
     return await this.communityPostsService.bump(id, userId);
   }
 
   @Delete(':id')
   @UseGuards(JwtGuard)
+  @ResponseMessage('Community post deleted successfully')
   async remove(
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
@@ -111,6 +120,7 @@ export class CommunityPostsController {
 
   @Post(':id/react')
   @UseGuards(JwtGuard)
+  @ResponseMessage('Reaction recorded successfully')
   async react(
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
@@ -121,6 +131,7 @@ export class CommunityPostsController {
 
   @Post(':id/comments')
   @UseGuards(JwtGuard)
+  @ResponseMessage('Comment added successfully')
   async addComment(
     @Param('id') id: string,
     @CurrentUser('id') userId: string,
@@ -131,6 +142,7 @@ export class CommunityPostsController {
 
   @Delete(':id/comments/:commentId')
   @UseGuards(JwtGuard)
+  @ResponseMessage('Comment deleted successfully')
   async deleteComment(
     @Param('id') id: string,
     @Param('commentId') commentId: string,
@@ -147,6 +159,7 @@ export class CommunityPostsController {
 
   @Post(':id/report')
   @UseGuards(JwtGuard)
+  @ResponseMessage('Post reported successfully')
   async report(
     @Param('id') id: string,
     @CurrentUser('id') reporterId: string,

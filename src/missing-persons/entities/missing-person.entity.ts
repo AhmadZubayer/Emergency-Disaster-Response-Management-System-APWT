@@ -1,10 +1,9 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 
 export enum MissingPersonStatus {
   MISSING = 'MISSING',
@@ -14,7 +13,7 @@ export enum MissingPersonStatus {
 }
 
 @Entity('missing_persons')
-export class MissingPerson {
+export class MissingPerson extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -51,10 +50,4 @@ export class MissingPerson {
     default: MissingPersonStatus.MISSING,
   })
   status: MissingPersonStatus;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }
