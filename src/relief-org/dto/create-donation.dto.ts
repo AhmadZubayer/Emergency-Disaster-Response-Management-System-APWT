@@ -1,29 +1,41 @@
-import { IsUUID, IsNotEmpty, IsNumber, IsEnum, IsOptional, IsString, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { DonationMethod } from '../entities/donation.entity';
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
+import { PaymentGateway } from '../enums';
 
 export class CreateDonationDto {
-  @ApiProperty({
-    example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    description: 'UUID of the user making this donation',
-  })
-  @IsUUID()
-  @IsNotEmpty()
-  donorId: string;
-
-  @ApiProperty({ example: 5000.00, description: 'Donation amount in BDT', minimum: 1 })
+  @ApiProperty({ example: 1000, description: 'Donation amount' })
   @IsNumber()
-  @IsNotEmpty()
   @Min(1)
   amount: number;
 
-  @ApiProperty({ enum: DonationMethod, example: DonationMethod.MOBILE_BANKING })
-  @IsEnum(DonationMethod)
-  @IsNotEmpty()
-  method: DonationMethod;
-
-  @ApiPropertyOptional({ example: 'TXN123456789', description: 'Transaction reference (optional for cash)' })
+  @ApiPropertyOptional({
+    enum: PaymentGateway,
+    default: PaymentGateway.STRIPE,
+  })
+  @IsEnum(PaymentGateway)
   @IsOptional()
+  payment_gateway?: PaymentGateway;
+
+  @ApiPropertyOptional({ example: false, default: false })
+  @IsBoolean()
+  @IsOptional()
+  is_anonymous?: boolean;
+
+  @ApiPropertyOptional({ example: 'John Doe' })
   @IsString()
-  transactionRef?: string;
+  @IsOptional()
+  donor_name?: string;
+
+  @ApiPropertyOptional({ example: 'donor@example.com' })
+  @IsEmail()
+  @IsOptional()
+  donor_email?: string;
 }
