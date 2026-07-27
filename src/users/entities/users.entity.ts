@@ -22,8 +22,6 @@ export class Users extends AuditEntity {
   @Column({ type: 'varchar', nullable: true })
   photo_url: string;
 
-  @Column({ type: 'varchar', nullable: true })
-  location: string;
 
   @Column(() => Address, { prefix: '' })
   address: Address;
