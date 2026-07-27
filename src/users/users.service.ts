@@ -8,6 +8,7 @@ import { Users } from './entities/users.entity';
 import { Repository } from 'typeorm';
 import { RegisterUserDto } from 'src/auth/dto/register-user.dto';
 
+import { USER_ROLE } from 'src/auth/types/user-roles.type';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { CompleteUserProfileDto } from './dto/complete-user-profile.dto';
 import { FilesService } from 'src/files/files.service';
@@ -31,7 +32,6 @@ export class UsersService {
     const user = this.usersRepo.create({
       name: createUsersDto.name,
       phone: createUsersDto.phoneNumber,
-      location: createUsersDto.location,
       address: createUsersDto.address,
     });
 
