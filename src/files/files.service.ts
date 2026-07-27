@@ -40,7 +40,9 @@ export class FilesService {
 
       const ext = path.extname(file.originalname).toLowerCase();
       const customName = options.customFileName
-        ? `${options.customFileName}-${i + 1}`
+        ? files.length > 1
+          ? `${options.customFileName}_${i + 1}`
+          : options.customFileName
         : `file-${Date.now()}-${Math.round(Math.random() * 1e9)}`;
 
       const filename = `${customName}${ext}`;
