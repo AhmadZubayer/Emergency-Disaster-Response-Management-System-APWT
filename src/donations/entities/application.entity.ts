@@ -1,18 +1,17 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { Users } from 'src/users/entities/users.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import { DonationCampaign } from './campaign.entity';
 import { ApplicationStatus } from '../enums';
 
 @Entity('donation_applications')
-export class DonationApplication {
+export class DonationApplication extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -58,10 +57,4 @@ export class DonationApplication {
 
   @Column({ type: 'timestamp', nullable: true })
   reviewed_at: Date | null;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

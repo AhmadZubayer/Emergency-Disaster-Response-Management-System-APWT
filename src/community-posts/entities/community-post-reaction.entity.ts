@@ -1,17 +1,17 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import { CommunityPost } from './community-post.entity';
 import { Users } from 'src/users/entities/users.entity';
 import { ReactionType } from '../enums/reaction-type.enum';
 
 @Entity('community_post_reactions')
-export class CommunityPostReaction {
+export class CommunityPostReaction extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -37,7 +37,4 @@ export class CommunityPostReaction {
     default: ReactionType.LIKE,
   })
   type: ReactionType;
-
-  @CreateDateColumn()
-  created_at: Date;
 }

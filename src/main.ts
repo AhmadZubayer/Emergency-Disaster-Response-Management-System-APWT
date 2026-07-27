@@ -4,9 +4,14 @@ import { ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { setupSwagger } from './config/swagger.config';
+import { CustomLoggerService } from './common/logger/logger.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new CustomLoggerService('Bootstrap');
+  const app = await NestFactory.create(AppModule, {
+    logger,
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -21,9 +26,9 @@ async function bootstrap() {
   const port = configService.get<number>('PORT') ?? 3000;
 
   if (dataSource.isInitialized) {
-    console.log(`Connected to database: ${dataSource.options.database}`);
-    console.log(`EDRMS Server Listening on Port: ${port}`);
-    console.log(`Swagger UI available at: http://localhost:${port}/api/docs`);
+    logger.logStartup(`Connected to database: ${dataSource.options.database}`);
+    logger.logStartup(`EDRMS Server Listening on Port: ${port}`);
+    logger.logStartup(`Swagger UI available at: http://localhost:${port}/api/docs`);
   }
   await app.listen(port);
 }

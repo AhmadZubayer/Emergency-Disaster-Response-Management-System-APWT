@@ -1,17 +1,16 @@
 import { Users } from 'src/users/entities/users.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { OrganizationRequestStatus } from '../enums/volunteer-status.enum';
 
 @Entity('organization_volunteer_requests')
-export class OrganizationVolunteerRequest {
+export class OrganizationVolunteerRequest extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -43,10 +42,4 @@ export class OrganizationVolunteerRequest {
     default: OrganizationRequestStatus.OPEN,
   })
   status: OrganizationRequestStatus;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

@@ -9,13 +9,18 @@ import { RescueRequest, RescueStatus } from './entities/rescue-request.entity';
 import { CreateRescueRequestDto } from './dto/create-rescue-request.dto';
 import { UpdateRescueRequestStatusDto } from './dto/update-rescue-request-status.dto';
 import { FilesService } from 'src/files/files.service';
+import { CustomLoggerService } from 'src/common/logger/logger.service';
+import { AuditService } from 'src/common/audit/audit.service';
 
 @Injectable()
 export class RescueRequestsService {
+  private readonly logger = new CustomLoggerService(RescueRequestsService.name);
+
   constructor(
     @InjectRepository(RescueRequest)
     private readonly rescueRepository: Repository<RescueRequest>,
     private readonly filesService: FilesService,
+    private readonly auditService: AuditService,
   ) {}
 
   async create(
@@ -42,7 +47,16 @@ export class RescueRequestsService {
       status: RescueStatus.PENDING,
     });
 
-    return await this.rescueRepository.save(rescueRequest);
+    this.auditService.setCreated(rescueRequest, userId);
+    const savedRequest = await this.rescueRepository.save(rescueRequest);
+
+    this.logger.logBusinessEvent('Rescue request created', 'RescueRequestsService', {
+      requestId: savedRequest.id,
+      userId,
+      urgency: savedRequest.urgency_level,
+    });
+
+    return savedRequest;
   }
 
   async findMyRequests(userId: string): Promise<RescueRequest[]> {
@@ -73,12 +87,14 @@ export class RescueRequestsService {
   async updateStatus(
     id: string,
     dto: UpdateRescueRequestStatusDto,
+    updaterId?: string,
   ): Promise<RescueRequest> {
     const request = await this.findOne(id);
     request.status = dto.status;
     if (dto.assigned_rescuer_id !== undefined) {
       request.assigned_rescuer_id = dto.assigned_rescuer_id;
     }
+    this.auditService.setUpdated(request, updaterId);
     return await this.rescueRepository.save(request);
   }
 
@@ -95,6 +111,7 @@ export class RescueRequestsService {
       );
     }
     request.status = RescueStatus.CANCELLED;
+    this.auditService.setUpdated(request, userId);
     return await this.rescueRepository.save(request);
   }
 }

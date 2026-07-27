@@ -1,11 +1,11 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import {
   FieldReportType,
   ReportSeverity,
@@ -13,7 +13,7 @@ import {
 import { Volunteer } from './volunteer.entity';
 
 @Entity('volunteer_field_reports')
-export class FieldReport {
+export class FieldReport extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -54,7 +54,4 @@ export class FieldReport {
 
   @Column({ type: 'int', nullable: true })
   quantity_needed: number | null;
-
-  @CreateDateColumn()
-  created_at: Date;
 }

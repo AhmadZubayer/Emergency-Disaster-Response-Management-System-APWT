@@ -1,20 +1,19 @@
 import { RescueRequest } from 'src/rescue-requests/entities/rescue-request.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
-  UpdateDateColumn,
 } from 'typeorm';
 import { VolunteerTaskStatus } from '../enums/volunteer-status.enum';
 import { Volunteer } from './volunteer.entity';
 
 @Entity('volunteer_tasks')
 @Unique(['volunteer_id', 'rescue_request_id'])
-export class VolunteerTask {
+export class VolunteerTask extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -43,10 +42,4 @@ export class VolunteerTask {
 
   @Column({ type: 'timestamp', nullable: true })
   completed_at: Date | null;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

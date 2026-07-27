@@ -13,6 +13,8 @@ import {
 } from 'src/rescue-requests/entities/rescue-request.entity';
 import { UsersService } from 'src/users/users.service';
 import { IsNull, Not, Repository } from 'typeorm';
+import { CustomLoggerService } from 'src/common/logger/logger.service';
+import { AuditService } from 'src/common/audit/audit.service';
 import { CreateOrganizationRequestDto } from './dto/create-organization-request.dto';
 import { CreateResourceShortageDto } from './dto/create-resource-shortage.dto';
 import { CreateRouteReportDto } from './dto/create-route-report.dto';
@@ -35,6 +37,8 @@ import {
 
 @Injectable()
 export class VolunteersService {
+  private readonly logger = new CustomLoggerService(VolunteersService.name);
+
   constructor(
     @InjectRepository(Volunteer)
     private readonly volunteerRepo: Repository<Volunteer>,
@@ -51,6 +55,7 @@ export class VolunteersService {
     @InjectRepository(Auth)
     private readonly authRepo: Repository<Auth>,
     private readonly usersService: UsersService,
+    private readonly auditService: AuditService,
   ) {}
 
   async register(
@@ -77,7 +82,15 @@ export class VolunteersService {
       on_duty: false,
     });
 
-    return await this.volunteerRepo.save(volunteer);
+    this.auditService.setCreated(volunteer, userId);
+    const savedVolunteer = await this.volunteerRepo.save(volunteer);
+
+    this.logger.logBusinessEvent('Volunteer profile created', 'VolunteersService', {
+      volunteerId: savedVolunteer.id,
+      userId,
+    });
+
+    return savedVolunteer;
   }
 
   async getMyProfile(userId: string): Promise<Volunteer> {
@@ -105,6 +118,7 @@ export class VolunteersService {
       }
     }
 
+    this.auditService.setUpdated(volunteer, userId);
     return await this.volunteerRepo.save(volunteer);
   }
 
@@ -124,12 +138,14 @@ export class VolunteersService {
     }
 
     volunteer.verification_status = VolunteerVerificationStatus.PENDING;
+    this.auditService.setUpdated(volunteer, userId);
     return await this.volunteerRepo.save(volunteer);
   }
 
   async reviewVerification(
     volunteerId: string,
     status: VolunteerVerificationStatus,
+    reviewerId?: string,
   ): Promise<Volunteer> {
     if (
       status !== VolunteerVerificationStatus.VERIFIED &&
@@ -153,6 +169,7 @@ export class VolunteersService {
         ? volunteer.available
         : false;
     volunteer.on_duty = false;
+    this.auditService.setUpdated(volunteer, reviewerId);
 
     const auth = await this.authRepo.findOne({
       where: { user_id: volunteer.user_id },
@@ -162,6 +179,7 @@ export class VolunteersService {
         status === VolunteerVerificationStatus.VERIFIED
           ? USER_ROLE.VOLUNTEER
           : USER_ROLE.USER;
+      this.auditService.setUpdated(auth, reviewerId);
       await this.authRepo.save(auth);
     }
 
@@ -188,6 +206,7 @@ export class VolunteersService {
       volunteer.on_duty = dto.on_duty;
     }
 
+    this.auditService.setUpdated(volunteer, userId);
     return await this.volunteerRepo.save(volunteer);
   }
 
@@ -301,14 +320,22 @@ export class VolunteersService {
         rescue_request_id: rescueRequestId,
         status: VolunteerTaskStatus.ACCEPTED,
       });
+      this.auditService.setCreated(task, userId);
     } else {
       task.status = VolunteerTaskStatus.ACCEPTED;
       task.completed_at = null;
+      this.auditService.setUpdated(task, userId);
     }
 
     request.assigned_rescuer_id = volunteer.id;
     request.status = RescueStatus.ACKNOWLEDGED;
+    this.auditService.setUpdated(request, userId);
     await this.rescueRequestRepo.save(request);
+
+    this.logger.logBusinessEvent('Volunteer assigned', 'VolunteersService', {
+      volunteerId: volunteer.id,
+      rescueRequestId,
+    });
 
     return await this.taskRepo.save(task);
   }
@@ -345,8 +372,10 @@ export class VolunteersService {
         rescue_request_id: rescueRequestId,
         status: VolunteerTaskStatus.REJECTED,
       });
+      this.auditService.setCreated(task, userId);
     } else {
       task.status = VolunteerTaskStatus.REJECTED;
+      this.auditService.setUpdated(task, userId);
     }
 
     return await this.taskRepo.save(task);
@@ -412,6 +441,9 @@ export class VolunteersService {
       task.completed_at = new Date();
     }
 
+    this.auditService.setUpdated(task, userId);
+    this.auditService.setUpdated(task.rescue_request, userId);
+
     await this.rescueRequestRepo.save(task.rescue_request);
     return await this.taskRepo.save(task);
   }
@@ -440,6 +472,7 @@ export class VolunteersService {
       quantity_needed: null,
     });
 
+    this.auditService.setCreated(report, userId);
     return await this.fieldReportRepo.save(report);
   }
 
@@ -460,6 +493,7 @@ export class VolunteersService {
       quantity_needed: dto.quantity_needed,
     });
 
+    this.auditService.setCreated(report, userId);
     return await this.fieldReportRepo.save(report);
   }
 
@@ -485,6 +519,7 @@ export class VolunteersService {
       status: OrganizationRequestStatus.OPEN,
     });
 
+    this.auditService.setCreated(request, organizationUserId);
     return await this.organizationRequestRepo.save(request);
   }
 
@@ -548,6 +583,7 @@ export class VolunteersService {
     });
     if (joinedCount >= request.needed_volunteers) {
       request.status = OrganizationRequestStatus.CLOSED;
+      this.auditService.setUpdated(request, userId);
       await this.organizationRequestRepo.save(request);
       throw new BadRequestException(
         'This organization request already has enough volunteers',
@@ -558,10 +594,12 @@ export class VolunteersService {
       volunteer_id: volunteer.id,
       organization_request_id: request.id,
     });
+    this.auditService.setCreated(join, userId);
     const savedJoin = await this.organizationJoinRepo.save(join);
 
     if (joinedCount + 1 >= request.needed_volunteers) {
       request.status = OrganizationRequestStatus.CLOSED;
+      this.auditService.setUpdated(request, userId);
       await this.organizationRequestRepo.save(request);
     }
 

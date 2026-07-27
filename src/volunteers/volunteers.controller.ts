@@ -23,6 +23,7 @@ import { UpdateTaskProgressDto } from './dto/update-task-progress.dto';
 import { UpdateVolunteerLocationDto } from './dto/update-volunteer-location.dto';
 import { UpdateVolunteerProfileDto } from './dto/update-volunteer-profile.dto';
 import { VolunteersService } from './volunteers.service';
+import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 
 @Controller('volunteers')
 @UseGuards(JwtGuard)
@@ -30,6 +31,7 @@ export class VolunteersController {
   constructor(private readonly volunteersService: VolunteersService) {}
 
   @Post('register')
+  @ResponseMessage('Volunteer registered successfully')
   register(
     @CurrentUser('id') userId: string,
     @Body() dto: RegisterVolunteerDto,
@@ -38,11 +40,13 @@ export class VolunteersController {
   }
 
   @Get('me')
+  @ResponseMessage('Volunteer profile retrieved successfully')
   getMyProfile(@CurrentUser('id') userId: string) {
     return this.volunteersService.getMyProfile(userId);
   }
 
   @Patch('me')
+  @ResponseMessage('Volunteer profile updated successfully')
   updateProfile(
     @CurrentUser('id') userId: string,
     @Body() dto: UpdateVolunteerProfileDto,
@@ -51,6 +55,7 @@ export class VolunteersController {
   }
 
   @Post('verification/apply')
+  @ResponseMessage('Verification application submitted successfully')
   applyForVerification(@CurrentUser('id') userId: string) {
     return this.volunteersService.applyForVerification(userId);
   }
@@ -58,6 +63,7 @@ export class VolunteersController {
   @Patch(':id/verification')
   @UseGuards(RolesGuard)
   @roles(USER_ROLE.ADMIN)
+  @ResponseMessage('Volunteer verification status reviewed successfully')
   reviewVerification(
     @Param('id') volunteerId: string,
     @Body() dto: ReviewVolunteerVerificationDto,
@@ -66,6 +72,7 @@ export class VolunteersController {
   }
 
   @Patch('duty/location')
+  @ResponseMessage('Duty location updated successfully')
   updateLocation(
     @CurrentUser('id') userId: string,
     @Body() dto: UpdateVolunteerLocationDto,
@@ -74,6 +81,7 @@ export class VolunteersController {
   }
 
   @Get('rescue-requests/nearby')
+  @ResponseMessage('Nearby rescue requests retrieved successfully')
   getNearbyRequests(
     @CurrentUser('id') userId: string,
     @Query('radius', new ParseFloatPipe({ optional: true })) radius?: number,
@@ -82,6 +90,7 @@ export class VolunteersController {
   }
 
   @Post('rescue-tasks/:requestId/accept')
+  @ResponseMessage('Rescue task accepted successfully')
   acceptTask(
     @CurrentUser('id') userId: string,
     @Param('requestId') requestId: string,
@@ -90,6 +99,7 @@ export class VolunteersController {
   }
 
   @Post('rescue-tasks/:requestId/reject')
+  @ResponseMessage('Rescue task rejected')
   rejectTask(
     @CurrentUser('id') userId: string,
     @Param('requestId') requestId: string,
@@ -98,11 +108,13 @@ export class VolunteersController {
   }
 
   @Get('rescue-tasks/my')
+  @ResponseMessage('Assigned tasks retrieved successfully')
   getAssignedTasks(@CurrentUser('id') userId: string) {
     return this.volunteersService.getAssignedTasks(userId);
   }
 
   @Patch('rescue-tasks/:taskId/progress')
+  @ResponseMessage('Task progress updated successfully')
   updateTaskProgress(
     @CurrentUser('id') userId: string,
     @Param('taskId') taskId: string,
@@ -112,6 +124,7 @@ export class VolunteersController {
   }
 
   @Patch('rescue-tasks/:taskId/complete')
+  @ResponseMessage('Task completed successfully')
   completeTask(
     @CurrentUser('id') userId: string,
     @Param('taskId') taskId: string,
@@ -120,6 +133,7 @@ export class VolunteersController {
   }
 
   @Post('field-reports/routes')
+  @ResponseMessage('Route report created successfully')
   reportRoute(
     @CurrentUser('id') userId: string,
     @Body() dto: CreateRouteReportDto,
@@ -128,6 +142,7 @@ export class VolunteersController {
   }
 
   @Post('field-reports/shortages')
+  @ResponseMessage('Resource shortage report created successfully')
   reportResourceShortage(
     @CurrentUser('id') userId: string,
     @Body() dto: CreateResourceShortageDto,
@@ -136,6 +151,7 @@ export class VolunteersController {
   }
 
   @Get('field-reports/my')
+  @ResponseMessage('Field reports retrieved successfully')
   getMyFieldReports(@CurrentUser('id') userId: string) {
     return this.volunteersService.getMyFieldReports(userId);
   }
@@ -143,6 +159,7 @@ export class VolunteersController {
   @Post('organization-requests')
   @UseGuards(RolesGuard)
   @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ResponseMessage('Organization request created successfully')
   createOrganizationRequest(
     @CurrentUser('id') organizationUserId: string,
     @Body() dto: CreateOrganizationRequestDto,
@@ -154,11 +171,13 @@ export class VolunteersController {
   }
 
   @Get('organization-requests')
+  @ResponseMessage('Open organization requests retrieved successfully')
   getOpenOrganizationRequests(@CurrentUser('id') userId: string) {
     return this.volunteersService.getOpenOrganizationRequests(userId);
   }
 
   @Post('organization-requests/:id/join')
+  @ResponseMessage('Joined organization request successfully')
   joinOrganizationRequest(
     @CurrentUser('id') userId: string,
     @Param('id') requestId: string,
@@ -167,6 +186,7 @@ export class VolunteersController {
   }
 
   @Get('organization-requests/my/joins')
+  @ResponseMessage('User organization requests retrieved successfully')
   getMyOrganizationRequests(@CurrentUser('id') userId: string) {
     return this.volunteersService.getMyOrganizationRequests(userId);
   }

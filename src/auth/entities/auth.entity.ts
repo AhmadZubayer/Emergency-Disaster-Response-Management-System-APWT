@@ -1,17 +1,16 @@
 import type { UserRole } from 'src/auth/types/user-roles.type';
 import { Users } from 'src/users/entities/users.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   OneToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 
 @Entity('auth')
-export class Auth {
+export class Auth extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -42,10 +41,4 @@ export class Auth {
 
   @Column({ type: 'timestamp', nullable: true })
   email_verification_expires: Date | null;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

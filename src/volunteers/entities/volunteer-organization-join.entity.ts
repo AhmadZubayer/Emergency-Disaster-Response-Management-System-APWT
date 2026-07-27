@@ -1,18 +1,19 @@
 import {
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
   Unique,
   Column,
+  CreateDateColumn,
 } from 'typeorm';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import { OrganizationVolunteerRequest } from './organization-volunteer-request.entity';
 import { Volunteer } from './volunteer.entity';
 
 @Entity('volunteer_organization_joins')
 @Unique(['volunteer_id', 'organization_request_id'])
-export class VolunteerOrganizationJoin {
+export class VolunteerOrganizationJoin extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

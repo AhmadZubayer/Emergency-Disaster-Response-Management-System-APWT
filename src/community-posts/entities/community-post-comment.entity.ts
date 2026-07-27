@@ -1,17 +1,16 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import { CommunityPost } from './community-post.entity';
 import { Users } from 'src/users/entities/users.entity';
 
 @Entity('community_post_comments')
-export class CommunityPostComment {
+export class CommunityPostComment extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -33,10 +32,4 @@ export class CommunityPostComment {
 
   @Column({ type: 'text' })
   content: string;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

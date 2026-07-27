@@ -1,17 +1,16 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { Users } from 'src/users/entities/users.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import { CampaignStatus } from '../enums';
 
 @Entity('donation_campaigns')
-export class DonationCampaign {
+export class DonationCampaign extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -45,11 +44,5 @@ export class DonationCampaign {
 
   @ManyToOne(() => Users, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'created_by_user_id' })
-  created_by: Users | null;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
+  creator: Users | null;
 }
