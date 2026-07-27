@@ -1,5 +1,13 @@
-import { Column, CreateDateColumn, Entity, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  OneToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { Auth } from 'src/auth/entities/auth.entity';
+import { Address } from './address.entity';
 
 @Entity('users')
 export class Users {
@@ -17,6 +25,9 @@ export class Users {
 
   @Column({ type: 'varchar', nullable: true })
   location: string;
+
+  @Column(() => Address, { prefix: '' })
+  address: Address;
 
   @Column({ type: 'decimal', nullable: true })
   gps_lat: number;

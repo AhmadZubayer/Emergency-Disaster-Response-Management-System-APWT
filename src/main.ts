@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
+import { setupSwagger } from './config/swagger.config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -13,6 +14,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  setupSwagger(app);
+
   const dataSource = app.get(DataSource);
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') ?? 3000;
@@ -20,6 +24,7 @@ async function bootstrap() {
   if (dataSource.isInitialized) {
     console.log(`Connected to database: ${dataSource.options.database}`);
     console.log(`EDRMS Server Listening on Port: ${port}`);
+    console.log(`Swagger UI available at: http://localhost:${port}/api/docs`);
   }
   await app.listen(port);
 }

@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Users } from './entities/users.entity';
 import { Repository } from 'typeorm';
 import { RegisterUserDto } from 'src/auth/dto/register-user.dto';
 
-import { USER_ROLE } from 'src/auth/types/user-roles.type';
 import { UpdateUserProfileDto } from './dto/update-user-profile.dto';
 import { CompleteUserProfileDto } from './dto/complete-user-profile.dto';
 import { FilesService } from 'src/files/files.service';
@@ -17,10 +20,19 @@ export class UsersService {
   ) {}
 
   async createUser(createUsersDto: RegisterUserDto): Promise<Users> {
+    const existingPhone = await this.usersRepo.findOne({
+      where: { phone: createUsersDto.phoneNumber },
+    });
+
+    if (existingPhone) {
+      throw new BadRequestException('Phone number is already registered');
+    }
+
     const user = this.usersRepo.create({
       name: createUsersDto.name,
       phone: createUsersDto.phoneNumber,
       location: createUsersDto.location,
+      address: createUsersDto.address,
     });
 
     return await this.usersRepo.save(user);
@@ -110,7 +122,4 @@ export class UsersService {
     user.is_safe = !user.is_safe;
     return await this.usersRepo.save(user);
   }
-
- 
- 
 }

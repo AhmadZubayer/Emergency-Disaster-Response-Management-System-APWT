@@ -1,10 +1,12 @@
 import { Type } from 'class-transformer';
 import {
   IsEmail,
+  IsNumber,
   IsOptional,
   IsString,
-  IsNumber,
+  ValidateNested,
 } from 'class-validator';
+import { AddressDto } from './address.dto';
 
 export class CreateUsersDto {
   @IsOptional()
@@ -22,6 +24,11 @@ export class CreateUsersDto {
   @IsOptional()
   @IsString()
   location?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => AddressDto)
+  address?: AddressDto;
 
   @IsOptional()
   @Type(() => Number)
