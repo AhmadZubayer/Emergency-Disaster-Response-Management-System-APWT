@@ -1,17 +1,16 @@
 import { Users } from 'src/users/entities/users.entity';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   OneToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { VolunteerVerificationStatus } from '../enums/volunteer-status.enum';
 
 @Entity('volunteers')
-export class Volunteer {
+export class Volunteer extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -46,10 +45,4 @@ export class Volunteer {
 
   @Column({ type: 'timestamp', nullable: true })
   last_location_update: Date | null;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

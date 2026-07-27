@@ -10,9 +10,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
-  ApiOperation,
   ApiQuery,
-  ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { DonationsService } from './donations.service';
@@ -26,6 +24,7 @@ import { roles } from 'src/auth/decorators/roles.decorator';
 import { JwtGuard } from 'src/auth/guards/access-jwt-guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { USER_ROLE } from 'src/auth/types/user-roles.type';
+import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 
 @ApiTags('Donations & Financial Aid')
 @Controller('donations')
@@ -33,27 +32,19 @@ export class DonationsController {
   constructor(private readonly donationsService: DonationsService) {}
 
   @Get('campaigns')
-  @ApiOperation({ summary: 'Get all active donation relief campaigns' })
-  @ApiResponse({ status: 200, description: 'List of donation campaigns' })
+  @ResponseMessage('Donation campaigns retrieved successfully')
   async getCampaigns() {
     return this.donationsService.getCampaigns();
   }
 
   @Get('campaigns/:id')
-  @ApiOperation({ summary: 'Get donation campaign details by ID' })
-  @ApiResponse({ status: 200, description: 'Campaign details' })
+  @ResponseMessage('Donation campaign details retrieved successfully')
   async getCampaignById(@Param('id') id: string) {
     return this.donationsService.getCampaignById(id);
   }
 
   @Post('campaigns/:id/donate')
-  @ApiOperation({
-    summary: 'Initiate a donation to a campaign (Stripe Checkout Session)',
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Returns Stripe checkout session URL for payment',
-  })
+  @ResponseMessage('Donation session created successfully')
   async initiateDonation(
     @Param('id') campaignId: string,
     @Body() dto: CreateDonationDto,
@@ -63,11 +54,7 @@ export class DonationsController {
   }
 
   @Get('payment/success')
-  @ApiOperation({
-    summary: 'Stripe Payment Success Redirect callback',
-  })
-  @ApiQuery({ name: 'session_id', required: false })
-  @ApiQuery({ name: 'tx_id', required: true })
+  @ResponseMessage('Payment verified and completed successfully')
   async handlePaymentSuccess(
     @Query('session_id') sessionId: string,
     @Query('tx_id') txId: string,
@@ -76,10 +63,8 @@ export class DonationsController {
   }
 
   @Get('payment/cancel')
-  @ApiOperation({
-    summary: 'Stripe Payment Cancel Redirect callback',
-  })
   @ApiQuery({ name: 'tx_id', required: true })
+  @ResponseMessage('Payment process cancelled')
   async handlePaymentCancel(@Query('tx_id') txId: string) {
     return this.donationsService.handlePaymentCancel(txId);
   }
@@ -87,8 +72,7 @@ export class DonationsController {
   @Post('campaigns/:id/apply')
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Apply for relief funds under a campaign' })
-  @ApiResponse({ status: 201, description: 'Application submitted' })
+  @ResponseMessage('Aid application submitted successfully')
   async applyForAid(
     @Param('id') campaignId: string,
     @CurrentUser('id') userId: string,
@@ -100,7 +84,7 @@ export class DonationsController {
   @Get('my-applications')
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'View user own submitted aid applications' })
+  @ResponseMessage('User aid applications retrieved successfully')
   async getUserApplications(@CurrentUser('id') userId: string) {
     return this.donationsService.getUserApplications(userId);
   }
@@ -109,9 +93,7 @@ export class DonationsController {
   @UseGuards(JwtGuard, RolesGuard)
   @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary: 'View all aid applications (Relief Org / Admin Only)',
-  })
+  @ResponseMessage('All aid applications retrieved successfully')
   async getAllApplications() {
     return this.donationsService.getAllApplications();
   }
@@ -120,10 +102,7 @@ export class DonationsController {
   @UseGuards(JwtGuard, RolesGuard)
   @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({
-    summary:
-      'Review & Approve/Reject relief application with approved amount (Relief Org / Admin)',
-  })
+  @ResponseMessage('Aid application reviewed successfully')
   async reviewApplication(
     @Param('id') applicationId: string,
     @CurrentUser('id') reviewerId: string,

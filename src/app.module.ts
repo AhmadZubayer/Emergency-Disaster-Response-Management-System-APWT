@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
+import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
@@ -24,6 +25,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
       inject: [ConfigService],
       useFactory: databaseConfig,
     }),
+    CommonModule,
     AuthModule,
     UsersModule,
     FilesModule,

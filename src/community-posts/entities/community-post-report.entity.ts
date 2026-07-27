@@ -1,16 +1,16 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 import { CommunityPost } from './community-post.entity';
 import { Users } from 'src/users/entities/users.entity';
 
 @Entity('community_post_reports')
-export class CommunityPostReport {
+export class CommunityPostReport extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -32,7 +32,4 @@ export class CommunityPostReport {
 
   @Column({ type: 'text' })
   reason: string;
-
-  @CreateDateColumn()
-  created_at: Date;
 }
