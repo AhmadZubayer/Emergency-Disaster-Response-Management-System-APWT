@@ -1,9 +1,9 @@
 import { Type } from 'class-transformer';
 import {
   IsEmail,
-  IsNumber,
   IsOptional,
   IsString,
+  IsNumber,
   ValidateNested,
 } from 'class-validator';
 import { AddressDto } from './address.dto';
@@ -20,10 +20,6 @@ export class CreateUsersDto {
   @IsOptional()
   @IsString()
   phone?: string;
-
-  @IsOptional()
-  @IsString()
-  location?: string;
 
   @IsOptional()
   @ValidateNested()
