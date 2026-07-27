@@ -12,6 +12,7 @@ import { RescueRequestsModule } from './rescue-requests/rescue-requests.module';
 import { MissingPersonsModule } from './missing-persons/missing-persons.module';
 import { CommunityPostsModule } from './community-posts/community-posts.module';
 import { DonationsModule } from './donations/donations.module';
+import { VolunteersModule } from './volunteers/volunteers.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { DonationsModule } from './donations/donations.module';
     MissingPersonsModule,
     CommunityPostsModule,
     DonationsModule,
+    VolunteersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
