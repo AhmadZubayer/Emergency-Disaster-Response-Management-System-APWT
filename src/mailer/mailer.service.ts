@@ -36,9 +36,48 @@ export class MailerService {
         </div>
       `;
 
-      await this.mailerService.sendMail({
-        to: toEmail,
-        subject: 'Verify your EDRMS Account Email',
+        await this.mailerService.sendMail({
+          to: toEmail,
+          subject: 'Verify your EDRMS Account Email',
+        html: htmlContent,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send verification email to ${toEmail}:`, error);
+      throw error;
+    }
+  }
+
+  async sendDisasterAlertEmail(
+    toEmail: string | null,
+    disasterName: string,
+    impactedLocation: string,
+    impactTime: Date,
+    disasterType: string,
+  ): Promise<void> {
+    if (!toEmail) {
+      return;
+    }
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 20px;">
+          <h2 style="color: #d9480f; margin-bottom: 5px;">Disaster Alert</h2>
+          <p style="color: #666; font-size: 14px;">Emergency Disaster Response Management System</p>
+        </div>
+        <p>Hello,</p>
+        <p>A new disaster alert has been reported: <strong>${disasterName}</strong>.</p>
+        <div style="background-color: #fff4f4; padding: 15px; border-radius: 6px; margin: 20px 0; border: 1px solid #ffe3e3;">
+          <p style="margin: 4px 0;"><strong>Type:</strong> ${disasterType}</p>
+          <p style="margin: 4px 0;"><strong>Location:</strong> ${impactedLocation}</p>
+          <p style="margin: 4px 0;"><strong>Impact Time:</strong> ${impactTime.toLocaleString()}</p>
+        </div>
+        <p>Please stay alert and follow official instructions.</p>
+      </div>
+    `;
+
+    await this.mailerService.sendMail({
+      to: toEmail,
+      subject: `Disaster Alert: ${disasterName}`,
         html: htmlContent,
       });
     } catch (error) {
