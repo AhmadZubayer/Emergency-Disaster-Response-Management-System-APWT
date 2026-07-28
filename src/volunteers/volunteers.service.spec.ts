@@ -9,6 +9,7 @@ import { VolunteersService } from './volunteers.service';
 import {
   FieldReportType,
   OrganizationRequestStatus,
+  VolunteerSkill,
   VolunteerTaskStatus,
   VolunteerVerificationStatus,
 } from './enums/volunteer-status.enum';
@@ -20,9 +21,13 @@ describe('VolunteersService', () => {
   let fieldReportRepo: any;
   let organizationRequestRepo: any;
   let organizationJoinRepo: any;
+  let groupJoinRepo: any;
   let rescueRequestRepo: any;
+  let missingPersonRepo: any;
   let authRepo: any;
   let usersService: any;
+  let filesService: any;
+  let auditService: any;
 
   const createRepo = () => ({
     create: jest.fn((value) => ({ ...value })),
@@ -35,7 +40,9 @@ describe('VolunteersService', () => {
   const verifiedVolunteer = {
     id: 'volunteer-1',
     user_id: 'user-1',
-    skills: ['first aid', 'swimming'],
+    skills: [VolunteerSkill.FIRST_AID, VolunteerSkill.FLOOD_RESCUE],
+    why_join: 'I want to help flood victims',
+    nid_card_url: '/user-files/volunteers/nid/test.pdf',
     available: true,
     verification_status: VolunteerVerificationStatus.VERIFIED,
     current_latitude: 23.8103,
@@ -49,10 +56,19 @@ describe('VolunteersService', () => {
     fieldReportRepo = createRepo();
     organizationRequestRepo = createRepo();
     organizationJoinRepo = createRepo();
+    groupJoinRepo = createRepo();
     rescueRequestRepo = createRepo();
+    missingPersonRepo = createRepo();
     authRepo = createRepo();
     usersService = {
       getUserById: jest.fn(),
+    };
+    filesService = {
+      saveFiles: jest.fn().mockResolvedValue(['/user-files/volunteers/nid/test.pdf']),
+    };
+    auditService = {
+      setCreated: jest.fn(),
+      setUpdated: jest.fn(),
     };
 
     service = new VolunteersService(
@@ -61,22 +77,28 @@ describe('VolunteersService', () => {
       fieldReportRepo,
       organizationRequestRepo,
       organizationJoinRepo,
+      groupJoinRepo,
       rescueRequestRepo,
+      missingPersonRepo,
       authRepo,
       usersService,
+      filesService,
+      auditService,
     );
   });
 
-  it('registers a volunteer with cleaned rescue skills', async () => {
+  it('registers a volunteer with rescue skills and non-null why_join', async () => {
     usersService.getUserById.mockResolvedValue({ id: 'user-1' });
     volunteerRepo.findOne.mockResolvedValue(null);
 
     const result = await service.register('user-1', {
-      skills: [' First Aid ', 'SWIMMING', 'first aid'],
+      skills: [VolunteerSkill.FIRST_AID, VolunteerSkill.SEARCH_AND_RESCUE],
+      why_join: 'I have first aid training and want to support emergency efforts',
       available: true,
     });
 
-    expect(result.skills).toEqual(['first aid', 'swimming']);
+    expect(result.skills).toEqual([VolunteerSkill.FIRST_AID, VolunteerSkill.SEARCH_AND_RESCUE]);
+    expect(result.why_join).toBe('I have first aid training and want to support emergency efforts');
     expect(result.verification_status).toBe(
       VolunteerVerificationStatus.NOT_APPLIED,
     );
@@ -98,7 +120,7 @@ describe('VolunteersService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
-  it('submits a completed volunteer profile for verification', async () => {
+  it('submits a completed volunteer profile with NID for verification', async () => {
     volunteerRepo.findOne.mockResolvedValue({
       ...verifiedVolunteer,
       verification_status: VolunteerVerificationStatus.NOT_APPLIED,
@@ -224,3 +246,4 @@ describe('VolunteersService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
+

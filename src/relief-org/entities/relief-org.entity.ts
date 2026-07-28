@@ -1,58 +1,51 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
-  OneToMany,
+  Entity,
   JoinColumn,
-  CreateDateColumn,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
-import { ApiProperty } from '@nestjs/swagger';
 import { Users } from 'src/users/entities/users.entity';
-import { Donation } from './donation.entity';
-import { Shelter } from './shelter.entity';
-
-export enum VerificationStatus {
-  PENDING = 'pending',
-  VERIFIED = 'verified',
-  REJECTED = 'rejected',
-}
+import { AuditEntity } from 'src/common/entities/audit.entity';
+import { Shelter } from 'src/shelter/entities/shelter.entity';
 
 @Entity('relief_orgs')
-export class ReliefOrg {
-  @ApiProperty()
+export class ReliefOrg extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  // ManyToOne → Users (teammate's real entity — no more stub)
-  @ManyToOne(() => Users, { nullable: false, onDelete: 'CASCADE' })
+  @Column({ type: 'uuid', unique: true })
+  user_id: string;
+
+  @OneToOne(() => Users, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
   user: Users;
 
-  @ApiProperty()
-  @Column({ name: 'user_id' })
-  userId: string;
+  @Column({ type: 'varchar' })
+  organization_name: string;
 
-  @ApiProperty({ example: 'Red Crescent Society Bangladesh' })
-  @Column({ name: 'org_name', length: 150 })
-  orgName: string;
+  @Column({ type: 'varchar', unique: true })
+  registration_number: string;
 
-  @ApiProperty({ enum: VerificationStatus })
-  @Column({
-    name: 'verification_status',
-    type: 'enum',
-    enum: VerificationStatus,
-    default: VerificationStatus.PENDING,
-  })
-  verificationStatus: VerificationStatus;
+  @Column({ type: 'varchar' })
+  address: string;
 
-  @ApiProperty()
-  @CreateDateColumn({ name: 'created_at' })
-  createdAt: Date;
+  @Column({ type: 'varchar', nullable: true })
+  website: string | null;
 
-  @OneToMany(() => Donation, (donation) => donation.receivedBy)
-  donations: Donation[];
+  @Column({ type: 'text', nullable: true })
+  description: string | null;
 
-  @OneToMany(() => Shelter, (shelter) => shelter.managedBy)
+  @Column({ type: 'varchar', nullable: true })
+  organization_type: string | null;
+
+  @Column({ type: 'varchar' })
+  verification_doc: string;
+
+  @Column({ type: 'boolean', default: false })
+  admin_verified: boolean;
+
+  @OneToMany(() => Shelter, (shelter) => shelter.relief_org)
   shelters: Shelter[];
 }

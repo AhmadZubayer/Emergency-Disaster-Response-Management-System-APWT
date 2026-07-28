@@ -36,9 +36,9 @@ export class MailerService {
         </div>
       `;
 
-        await this.mailerService.sendMail({
-          to: toEmail,
-          subject: 'Verify your EDRMS Account Email',
+      await this.mailerService.sendMail({
+        to: toEmail,
+        subject: 'Verify your EDRMS Account Email',
         html: htmlContent,
       });
     } catch (error) {
@@ -58,30 +58,31 @@ export class MailerService {
       return;
     }
 
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;">
-        <div style="text-align: center; margin-bottom: 20px;">
-          <h2 style="color: #d9480f; margin-bottom: 5px;">Disaster Alert</h2>
-          <p style="color: #666; font-size: 14px;">Emergency Disaster Response Management System</p>
+    try {
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #d9480f; margin-bottom: 5px;">Disaster Alert</h2>
+            <p style="color: #666; font-size: 14px;">Emergency Disaster Response Management System</p>
+          </div>
+          <p>Hello,</p>
+          <p>A new disaster alert has been reported: <strong>${disasterName}</strong>.</p>
+          <div style="background-color: #fff4f4; padding: 15px; border-radius: 6px; margin: 20px 0; border: 1px solid #ffe3e3;">
+            <p style="margin: 4px 0;"><strong>Type:</strong> ${disasterType}</p>
+            <p style="margin: 4px 0;"><strong>Location:</strong> ${impactedLocation}</p>
+            <p style="margin: 4px 0;"><strong>Impact Time:</strong> ${impactTime.toLocaleString()}</p>
+          </div>
+          <p>Please stay alert and follow official instructions.</p>
         </div>
-        <p>Hello,</p>
-        <p>A new disaster alert has been reported: <strong>${disasterName}</strong>.</p>
-        <div style="background-color: #fff4f4; padding: 15px; border-radius: 6px; margin: 20px 0; border: 1px solid #ffe3e3;">
-          <p style="margin: 4px 0;"><strong>Type:</strong> ${disasterType}</p>
-          <p style="margin: 4px 0;"><strong>Location:</strong> ${impactedLocation}</p>
-          <p style="margin: 4px 0;"><strong>Impact Time:</strong> ${impactTime.toLocaleString()}</p>
-        </div>
-        <p>Please stay alert and follow official instructions.</p>
-      </div>
-    `;
+      `;
 
-    await this.mailerService.sendMail({
-      to: toEmail,
-      subject: `Disaster Alert: ${disasterName}`,
+      await this.mailerService.sendMail({
+        to: toEmail,
+        subject: `Disaster Alert: ${disasterName}`,
         html: htmlContent,
       });
     } catch (error) {
-      this.logger.error(`Failed to send verification email to ${toEmail}:`, error);
+      this.logger.error(`Failed to send disaster alert email to ${toEmail}:`, error);
       throw error;
     }
   }
@@ -184,6 +185,40 @@ export class MailerService {
       });
     } catch (error) {
       this.logger.error(`Failed to send aid approval email to ${toEmail}:`, error);
+      throw error;
+    }
+  }
+
+  async sendReliefOrgVerificationEmail(
+    toEmail: string,
+    orgName: string,
+  ): Promise<void> {
+    try {
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #ffffff;">
+          <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #2b8a3e; margin-bottom: 5px;">Relief Organization Verified!</h2>
+            <p style="color: #666; font-size: 14px;">EDRMS Administration</p>
+          </div>
+          <p>Congratulations <strong>${orgName}</strong>,</p>
+          <p>Your application for registration as an official Relief Organization on EDRMS has been <strong style="color: #2b8a3e;">VERIFIED AND CONFIRMED</strong> by the Administrator.</p>
+          <div style="background-color: #f4fce3; padding: 15px; border-radius: 6px; margin: 20px 0; border: 1px solid #d8f5a2;">
+            <p style="margin: 0; color: #2b8a3e; font-weight: bold;">Your account role has been upgraded to Relief Organization (relief_org).</p>
+            <p style="margin: 8px 0 0 0; font-size: 14px; color: #555;">You can now log in, manage shelters, initiate emergency response tasks, and coordinate relief activities.</p>
+          </div>
+          <p style="font-size: 14px; color: #555;">Thank you for partnering with us to assist affected communities during disasters.</p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="font-size: 11px; color: #888; text-align: center;">Emergency Disaster Response Management System (EDRMS) &copy; 2026</p>
+        </div>
+      `;
+
+      await this.mailerService.sendMail({
+        to: toEmail,
+        subject: 'Verification Confirmed as Relief Org',
+        html: htmlContent,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to send relief org verification email to ${toEmail}:`, error);
       throw error;
     }
   }

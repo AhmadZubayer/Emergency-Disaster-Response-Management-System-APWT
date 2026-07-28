@@ -15,6 +15,7 @@ import { UpdateMissingPersonDto } from './dto/update-missing-person.dto';
 import { UpdateMissingPersonStatusDto } from './dto/update-missing-person-status.dto';
 import { FilesService } from 'src/files/files.service';
 import { UsersService } from 'src/users/users.service';
+import { AuditService, AuditTask } from 'src/common/audit/audit.service';
 
 @Injectable()
 export class MissingPersonsService {
@@ -23,6 +24,7 @@ export class MissingPersonsService {
     private readonly missingPersonRepository: Repository<MissingPerson>,
     private readonly filesService: FilesService,
     private readonly usersService: UsersService,
+    private readonly auditService: AuditService,
   ) {}
 
   async create(
@@ -68,7 +70,15 @@ export class MissingPersonsService {
       status: MissingPersonStatus.MISSING,
     });
 
-    return await this.missingPersonRepository.save(missingPerson);
+    this.auditService.setCreated(missingPerson, reporterId);
+    const savedReport = await this.missingPersonRepository.save(missingPerson);
+    await this.auditService.logAudit(
+      AuditTask.CREATE,
+      reporterId,
+      `Created missing person report ID: ${savedReport.id} for ${savedReport.full_name}`,
+    );
+
+    return savedReport;
   }
 
   async findAll(
@@ -140,7 +150,15 @@ export class MissingPersonsService {
     }
 
     Object.assign(report, dto);
-    return await this.missingPersonRepository.save(report);
+    this.auditService.setUpdated(report, reporterId);
+    const updatedReport = await this.missingPersonRepository.save(report);
+    await this.auditService.logAudit(
+      AuditTask.UPDATE,
+      reporterId,
+      `Updated missing person report ID: ${id}`,
+    );
+
+    return updatedReport;
   }
 
   async updateStatus(
@@ -153,7 +171,15 @@ export class MissingPersonsService {
     this.checkPermission(report, reporterId, role);
 
     report.status = dto.status;
-    return await this.missingPersonRepository.save(report);
+    this.auditService.setUpdated(report, reporterId);
+    const updatedReport = await this.missingPersonRepository.save(report);
+    await this.auditService.logAudit(
+      AuditTask.UPDATE,
+      reporterId,
+      `Updated status of missing person report ID: ${id} to ${dto.status}`,
+    );
+
+    return updatedReport;
   }
 
   async remove(
@@ -168,7 +194,14 @@ export class MissingPersonsService {
       await this.filesService.deleteFile(report.photo_url);
     }
 
+    this.auditService.setDeleted(report, reporterId);
     await this.missingPersonRepository.remove(report);
+    await this.auditService.logAudit(
+      AuditTask.DELETE,
+      reporterId,
+      `Deleted missing person report ID: ${id}`,
+    );
+
     return { message: `Missing person report "${id}" has been deleted.` };
   }
 

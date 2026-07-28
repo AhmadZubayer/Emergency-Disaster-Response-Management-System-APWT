@@ -1,288 +1,145 @@
 import {
-  Injectable,
-  NotFoundException,
   BadRequestException,
-  ConflictException,
+  Injectable,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-
 import { ReliefOrg } from './entities/relief-org.entity';
-import { Donation } from './entities/donation.entity';
-import { Shelter } from './entities/shelter.entity';
-import { ShelterStatus } from './entities/shelter.entity';
-
-import { CreateReliefOrgDto } from './dto/create-relief-org.dto';
-import { UpdateReliefOrgDto } from './dto/update-relief-org.dto';
-import { VerifyReliefOrgDto } from './dto/verify-relief-org.dto';
-import { CreateDonationDto } from './dto/create-donation.dto';
-import { UpdateDonationDto } from './dto/update-donation.dto';
-import { CreateShelterDto } from './dto/create-shelter.dto';
-import { UpdateShelterDto } from './dto/update-shelter.dto';
+import { SignUpReliefOrgDto } from './dto/sign-up-relief-org.dto';
+import { FilesService } from 'src/files/files.service';
+import { MailerService } from 'src/mailer/mailer.service';
+import { Auth } from 'src/auth/entities/auth.entity';
+import { USER_ROLE } from 'src/auth/types/user-roles.type';
+import { CustomLoggerService } from 'src/common/logger/logger.service';
+import { AuditService } from 'src/common/audit/audit.service';
+import { EntityNotFoundException } from 'src/common/exceptions/entity-not-found.exception';
+import { ResourceConflictException } from 'src/common/exceptions/resource-conflict.exception';
 
 @Injectable()
 export class ReliefOrgService {
+  private readonly logger = new CustomLoggerService(ReliefOrgService.name);
+
   constructor(
     @InjectRepository(ReliefOrg)
     private readonly reliefOrgRepo: Repository<ReliefOrg>,
-
-    @InjectRepository(Donation)
-    private readonly donationRepo: Repository<Donation>,
-
-    @InjectRepository(Shelter)
-    private readonly shelterRepo: Repository<Shelter>,
+    @InjectRepository(Auth)
+    private readonly authRepo: Repository<Auth>,
+    private readonly filesService: FilesService,
+    private readonly mailerService: MailerService,
+    private readonly auditService: AuditService,
   ) {}
 
-  // ─────────────────────────────────────────────
-  // RELIEF ORG — Profile & Verification
-  // ─────────────────────────────────────────────
+  async signUpAsReliefOrg(
+    userId: string,
+    dto: SignUpReliefOrgDto,
+    file?: Express.Multer.File,
+  ): Promise<ReliefOrg> {
+    if (!file) {
+      throw new BadRequestException('Verification document (PDF format) is required');
+    }
 
-  /**
-   * Register a new Relief Organization
-   * userId আসে JWT token থেকে (Controller-এ @CurrentUser('id'))
-   */
-  async register(userId: string, dto: CreateReliefOrgDto): Promise<ReliefOrg> {
-    // এই user আগে কোনো org register করেছে কিনা চেক করো
-    const existing = await this.reliefOrgRepo.findOne({
-      where: { userId },
+    const existingUserOrg = await this.reliefOrgRepo.findOne({
+      where: { user_id: userId },
     });
-
-    if (existing) {
-      throw new ConflictException(
-        'An organization is already registered for this user account.',
+    if (existingUserOrg) {
+      this.logger.warn(`Relief Org sign up conflict for user_id: ${userId}`);
+      throw new ResourceConflictException(
+        'A relief organization registration already exists for this user account',
       );
     }
 
-    const org = this.reliefOrgRepo.create({
-      userId,             // JWT থেকে পাওয়া user id
-      orgName: dto.orgName,
+    const existingRegNum = await this.reliefOrgRepo.findOne({
+      where: { registration_number: dto.registration_number },
+    });
+    if (existingRegNum) {
+      this.logger.warn(`Relief Org registration number conflict: ${dto.registration_number}`);
+      throw new ResourceConflictException(
+        'A relief organization with this registration number already exists',
+      );
+    }
+
+    const uploadedUrls = await this.filesService.saveFiles([file], {
+      subFolder: '/relief-org-docs',
+      allowedMimeTypes: ['application/pdf'],
+      customFileName: `relief-org-doc-${userId}-${Date.now()}`,
     });
 
-    return await this.reliefOrgRepo.save(org);
+    const reliefOrg = this.reliefOrgRepo.create({
+      user_id: userId,
+      organization_name: dto.organization_name,
+      registration_number: dto.registration_number,
+      address: dto.address,
+      website: dto.website || null,
+      description: dto.description || null,
+      organization_type: dto.organization_type || null,
+      verification_doc: uploadedUrls[0],
+      admin_verified: false,
+    });
+
+    this.auditService.setCreated(reliefOrg, userId);
+    this.logger.log(`Signed up relief org application for: ${reliefOrg.organization_name}`);
+    return this.reliefOrgRepo.save(reliefOrg);
   }
 
-  /**
-   * Get a single Relief Org by its ID
-   */
-  async findById(id: string): Promise<ReliefOrg> {
-    const org = await this.reliefOrgRepo.findOne({
-      where: { id },
-      relations: { donations: true, shelters: true },
+  async verifyReliefOrg(orgId: string): Promise<ReliefOrg> {
+    const reliefOrg = await this.reliefOrgRepo.findOne({
+      where: { id: orgId },
+      relations: { user: { auth: true } },
     });
 
-    if (!org) {
-      throw new NotFoundException(
-        `Relief Organization with ID "${id}" not found.`,
+    if (!reliefOrg) {
+      throw new EntityNotFoundException('Relief Organization', orgId);
+    }
+
+    reliefOrg.admin_verified = true;
+    this.auditService.setUpdated(reliefOrg);
+    const savedOrg = await this.reliefOrgRepo.save(reliefOrg);
+
+    const userAuth = await this.authRepo.findOne({
+      where: { user_id: reliefOrg.user_id },
+    });
+
+    if (userAuth) {
+      userAuth.role = USER_ROLE.RELIEF_ORG;
+      this.auditService.setUpdated(userAuth);
+      await this.authRepo.save(userAuth);
+
+      await this.mailerService.sendReliefOrgVerificationEmail(
+        userAuth.email,
+        reliefOrg.organization_name,
       );
     }
 
+    this.logger.log(`Verified relief org ID: ${orgId}`);
+    return savedOrg;
+  }
+
+  async getMyProfile(userId: string): Promise<ReliefOrg> {
+    const org = await this.reliefOrgRepo.findOne({
+      where: { user_id: userId },
+      relations: { shelters: true },
+    });
+    if (!org) {
+      throw new EntityNotFoundException('Relief Organization Profile', userId);
+    }
     return org;
   }
 
-  /**
-   * Update organization name
-   */
-  async updateOrg(id: string, dto: UpdateReliefOrgDto): Promise<ReliefOrg> {
-    const org = await this.findById(id);
-    Object.assign(org, dto);
-    return await this.reliefOrgRepo.save(org);
-  }
-
-  /**
-   * Update verification status — Admin only
-   */
-  async verifyOrg(id: string, dto: VerifyReliefOrgDto): Promise<ReliefOrg> {
-    const org = await this.findById(id);
-    org.verificationStatus = dto.verificationStatus;
-    return await this.reliefOrgRepo.save(org);
-  }
-
-  /**
-   * Generate operations report for an org
-   */
-  async getReport(id: string): Promise<object> {
-    const org = await this.findById(id);
-
-    const donations = await this.donationRepo.find({
-      where: { receivedById: id },
+  async getById(id: string): Promise<ReliefOrg> {
+    const org = await this.reliefOrgRepo.findOne({
+      where: { id },
+      relations: { shelters: true },
     });
-
-    const shelters = await this.shelterRepo.find({
-      where: { managedById: id },
-    });
-
-    const totalDonationAmount = donations.reduce(
-      (sum, d) => sum + Number(d.amount),
-      0,
-    );
-
-    const donationsByStatus = {
-      pending: donations.filter((d) => d.status === 'pending').length,
-      received: donations.filter((d) => d.status === 'received').length,
-      cancelled: donations.filter((d) => d.status === 'cancelled').length,
-    };
-
-    const totalCapacity = shelters.reduce((sum, s) => sum + s.capacity, 0);
-    const totalOccupancy = shelters.reduce((sum, s) => sum + s.currentOccupancy, 0);
-
-    const sheltersByStatus = {
-      active: shelters.filter((s) => s.status === 'active').length,
-      full: shelters.filter((s) => s.status === 'full').length,
-      closed: shelters.filter((s) => s.status === 'closed').length,
-    };
-
-    return {
-      organization: {
-        id: org.id,
-        orgName: org.orgName,
-        verificationStatus: org.verificationStatus,
-        registeredAt: org.createdAt,
-      },
-      donations: {
-        totalCount: donations.length,
-        totalAmountBDT: totalDonationAmount,
-        byStatus: donationsByStatus,
-      },
-      shelters: {
-        totalCount: shelters.length,
-        totalCapacity,
-        totalCurrentOccupancy: totalOccupancy,
-        availableSpace: totalCapacity - totalOccupancy,
-        byStatus: sheltersByStatus,
-      },
-      generatedAt: new Date(),
-    };
-  }
-
-  // ─────────────────────────────────────────────
-  // DONATIONS
-  // ─────────────────────────────────────────────
-
-  async createDonation(orgId: string, dto: CreateDonationDto): Promise<Donation> {
-    await this.findById(orgId);
-
-    const donation = this.donationRepo.create({
-      donorId: dto.donorId,
-      amount: dto.amount,
-      method: dto.method,
-      transactionRef: dto.transactionRef,
-      receivedById: orgId,
-    });
-
-    return await this.donationRepo.save(donation);
-  }
-
-  async getDonations(orgId: string): Promise<Donation[]> {
-    await this.findById(orgId);
-
-    return await this.donationRepo.find({
-      where: { receivedById: orgId },
-      order: { createdAt: 'DESC' },
-    });
-  }
-
-  async updateDonation(
-    orgId: string,
-    donationId: string,
-    dto: UpdateDonationDto,
-  ): Promise<Donation> {
-    const donation = await this.donationRepo.findOne({
-      where: { id: donationId, receivedById: orgId },
-    });
-
-    if (!donation) {
-      throw new NotFoundException(
-        `Donation with ID "${donationId}" not found for this organization.`,
-      );
+    if (!org) {
+      throw new EntityNotFoundException('Relief Organization', id);
     }
-
-    donation.status = dto.status;
-    return await this.donationRepo.save(donation);
+    return org;
   }
 
-  // ─────────────────────────────────────────────
-  // SHELTERS
-  // ─────────────────────────────────────────────
-
-  async createShelter(orgId: string, dto: CreateShelterDto): Promise<Shelter> {
-    await this.findById(orgId);
-
-    const shelter = this.shelterRepo.create({
-      managedById: orgId,
-      name: dto.name,
-      location: dto.location,
-      photoUrl: dto.photoUrl,
-      gpsLat: dto.gpsLat,
-      gpsLng: dto.gpsLng,
-      capacity: dto.capacity,
+  async getAll(): Promise<ReliefOrg[]> {
+    return this.reliefOrgRepo.find({
+      relations: { shelters: true },
+      order: { created_at: 'DESC' },
     });
-
-    return await this.shelterRepo.save(shelter);
-  }
-
-  async getShelters(orgId: string): Promise<Shelter[]> {
-    await this.findById(orgId);
-
-    return await this.shelterRepo.find({
-      where: { managedById: orgId },
-      order: { name: 'ASC' },
-    });
-  }
-
-  async updateShelter(
-    orgId: string,
-    shelterId: string,
-    dto: UpdateShelterDto,
-  ): Promise<Shelter> {
-    const shelter = await this.shelterRepo.findOne({
-      where: { id: shelterId, managedById: orgId },
-    });
-
-    if (!shelter) {
-      throw new NotFoundException(
-        `Shelter with ID "${shelterId}" not found for this organization.`,
-      );
-    }
-
-    const newCapacity = dto.capacity ?? shelter.capacity;
-    const newOccupancy = dto.currentOccupancy ?? shelter.currentOccupancy;
-
-    if (newOccupancy > newCapacity) {
-      throw new BadRequestException(
-        `Current occupancy (${newOccupancy}) cannot exceed capacity (${newCapacity}).`,
-      );
-    }
-
-    Object.assign(shelter, dto);
-
-    // Auto status: full যদি occupancy = capacity
-    if (shelter.currentOccupancy >= shelter.capacity) {
-      shelter.status = ShelterStatus.FULL;
-    }
-
-    // Auto status: active যদি occupancy কমে যায় (closed override হবে না)
-    if (
-      shelter.currentOccupancy < shelter.capacity &&
-      shelter.status === ShelterStatus.FULL
-    ) {
-      shelter.status = ShelterStatus.ACTIVE;
-    }
-
-    return await this.shelterRepo.save(shelter);
-  }
-
-  async deleteShelter(orgId: string, shelterId: string): Promise<object> {
-    const shelter = await this.shelterRepo.findOne({
-      where: { id: shelterId, managedById: orgId },
-    });
-
-    if (!shelter) {
-      throw new NotFoundException(
-        `Shelter with ID "${shelterId}" not found for this organization.`,
-      );
-    }
-
-    await this.shelterRepo.remove(shelter);
-    return { message: `Shelter "${shelter.name}" has been successfully deleted.` };
   }
 }

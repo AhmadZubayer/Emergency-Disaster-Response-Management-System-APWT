@@ -14,6 +14,8 @@ import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { roles } from 'src/auth/decorators/roles.decorator';
 import { USER_ROLE } from 'src/auth/types/user-roles.type';
 
+import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
+
 @ApiTags('Disaster')
 @ApiBearerAuth()
 @Controller('disaster')
@@ -27,6 +29,7 @@ export class DisasterController {
   @ApiOperation({ summary: 'Create a new disaster alert (relief_org only)' })
   @ApiResponse({ status: 201, description: 'Disaster created and notifications sent.' })
   @ApiResponse({ status: 403, description: 'Forbidden — relief_org role required.' })
+  @ResponseMessage('Disaster alert created successfully')
   create(@Body() dto: CreateDisasterDto) {
     return this.disasterService.createDisaster(dto);
   }

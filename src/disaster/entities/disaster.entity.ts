@@ -1,10 +1,9 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 
 export enum DisasterType {
   CYCLONE = 'cyclone',
@@ -15,7 +14,7 @@ export enum DisasterType {
 }
 
 @Entity('disasters')
-export class Disaster {
+export class Disaster extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -33,10 +32,4 @@ export class Disaster {
 
   @Column({ type: 'boolean', default: false })
   is_verified: boolean;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

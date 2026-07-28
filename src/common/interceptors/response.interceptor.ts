@@ -47,14 +47,36 @@ export class ResponseInterceptor<T>
           payload = Object.keys(rest).length > 0 ? rest : data;
         }
 
+        const sanitizedPayload = this.sanitizeData(payload);
+
         return {
           success: true,
           statusCode,
           message,
-          data: payload ?? null,
+          data: sanitizedPayload ?? null,
           timestamp: new Date().toISOString(),
         };
       }),
     );
+  }
+
+  private sanitizeData(data: any): any {
+    if (Array.isArray(data)) {
+      return data.map((item) => this.sanitizeData(item));
+    }
+    if (data !== null && typeof data === 'object' && !(data instanceof Date)) {
+      const cleaned: any = {};
+      for (const [key, value] of Object.entries(data)) {
+        if (
+          ['created_by', 'updated_by', 'deleted_by', 'deleted_at'].includes(key) &&
+          (value === null || value === undefined)
+        ) {
+          continue;
+        }
+        cleaned[key] = this.sanitizeData(value);
+      }
+      return cleaned;
+    }
+    return data;
   }
 }
