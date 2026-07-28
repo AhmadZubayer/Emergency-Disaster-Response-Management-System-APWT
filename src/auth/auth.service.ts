@@ -46,10 +46,10 @@ export class AuthService {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // 1. Create user profile in 'users' table
+  
     const createdUser = await this.usersService.createUser(registerUserDto);
 
-    // 2. Create credentials record in 'auth' table
+   
     const authRecord = this.authRepo.create({
       user_id: createdUser.id,
       email: registerUserDto.email,

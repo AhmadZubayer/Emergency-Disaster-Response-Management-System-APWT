@@ -114,13 +114,8 @@ All endpoints wrap successful responses using the unified `ResponseEnvelope` int
   "statusCode": 200,
   "message": "User signed in successfully",
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "user": {
-      "id": "e4b5a260-1234-4567-89ab-cdef01234567",
-      "email": "ahmadzubayer@example.com",
-      "role": "user"
-    }
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   },
   "timestamp": "2026-07-28T11:18:54.000Z"
 }
@@ -141,7 +136,8 @@ All endpoints wrap successful responses using the unified `ResponseEnvelope` int
   "statusCode": 200,
   "message": "Token refreshed successfully",
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
   },
   "timestamp": "2026-07-28T11:18:54.000Z"
 }
@@ -1322,107 +1318,173 @@ All endpoints wrap successful responses using the unified `ResponseEnvelope` int
 
 ---
 
-## 11. Admin Management & Database (`/admin`)
+## 11. Admin Management & Control (`/admin`)
 
 > ⚠️ All routes in this section require an Admin Bearer Token (`Authorization: Bearer <ADMIN_ACCESS_TOKEN>`).
 
-### 11.1 View Volunteer Verification Requests
+### 11.1 List Registered Accounts
 - **Method:** `GET`
-- **Full URL:** `http://localhost:3000/admin/volunteer-verification-requests`
+- **Full URL:** `http://localhost:3000/admin/accounts`
+- **Query Params (Optional):**
+  - `page=1`
+  - `limit=10`
+  - `role=user` *(Allowed: user, admin, volunteer, relief_org)*
+  - `includeDeleted=false` *(Boolean: true/false)*
 
 ---
 
-### 11.2 View Relief Org Verification Requests
-- **Method:** `GET`
-- **Full URL:** `http://localhost:3000/admin/relief-org-verification-requests`
+### 11.2 Update Account Role
+- **Method:** `PATCH`
+- **Full URL:** `http://localhost:3000/admin/accounts/:id/role`
+- **Headers:** `Content-Type: application/json`
+- **Path Params:** `id`: User UUID
+- **Request Body (JSON):**
+```json
+{
+  "role": "USER"
+}
+```
 
 ---
 
-### 11.3 Change User Role to Volunteer
-- **Method:** `PATCH` (or `POST`)
-- **Full URL:** `http://localhost:3000/admin/change-role/volunteer/:userId`
-- **Path Params:** `userId`: Target User UUID
+### 11.3 Soft Delete Account
+- **Method:** `DELETE`
+- **Full URL:** `http://localhost:3000/admin/accounts/:id`
+- **Path Params:** `id`: User UUID
 
 ---
 
-### 11.4 Change User Role to Relief Org & Verify
-- **Method:** `PATCH` (or `POST`)
-- **Full URL:** `http://localhost:3000/admin/change-role/relief-org/:userId`
-- **Path Params:** `userId`: Target User UUID
+### 11.4 Restore Soft-Deleted Account
+- **Method:** `PATCH`
+- **Full URL:** `http://localhost:3000/admin/accounts/:id/restore`
+- **Path Params:** `id`: User UUID
 
 ---
 
-### 11.5 Change User Role to Admin
-- **Method:** `PATCH` (or `POST`)
-- **Full URL:** `http://localhost:3000/admin/change-role/admin/:userId`
-- **Path Params:** `userId`: Target User UUID
-
----
-
-### 11.6 View All Database Tables & Row Counts
-- **Method:** `GET`
-- **Full URL:** `http://localhost:3000/admin/tables`
-
----
-
-### 11.7 View Specific Database Table Records
-- **Method:** `GET`
-- **Full URL:** `http://localhost:3000/admin/tables/:tableName`
-- **Path Params:** `tableName`: Table name (e.g. `users`, `rescue_requests`, `disasters`)
-
----
-
-### 11.8 Get All Registered Users
-- **Method:** `GET`
-- **Full URL:** `http://localhost:3000/admin/users`
-
----
-
-### 11.9 Get All Volunteers
+### 11.5 List Volunteers
 - **Method:** `GET`
 - **Full URL:** `http://localhost:3000/admin/volunteers`
+- **Query Params (Optional):**
+  - `page=1`
+  - `limit=10`
+  - `status=pending` *(Allowed: pending, verified, rejected)*
 
 ---
 
-### 11.10 Get All Relief Organizations
+### 11.6 Verify Volunteer Account
+- **Method:** `PATCH`
+- **Full URL:** `http://localhost:3000/admin/volunteers/:id/verify`
+- **Headers:** `Content-Type: application/json`
+- **Path Params:** `id`: Volunteer UUID
+- **Request Body (JSON):**
+```json
+{
+  "status": "verified"
+}
+```
+
+---
+
+### 11.7 List Relief Organizations
 - **Method:** `GET`
 - **Full URL:** `http://localhost:3000/admin/relief-orgs`
+- **Query Params (Optional):**
+  - `page=1`
+  - `limit=10`
+  - `status=pending` *(Allowed: pending, verified, rejected)*
 
 ---
 
-### 11.11 Get All Disasters
+### 11.8 Verify Relief Organization
+- **Method:** `PATCH`
+- **Full URL:** `http://localhost:3000/admin/relief-orgs/:id/verify`
+- **Headers:** `Content-Type: application/json`
+- **Path Params:** `id`: Relief Organization UUID
+- **Request Body (JSON):**
+```json
+{
+  "status": "verified"
+}
+```
+
+---
+
+### 11.9 List Disaster Reports
 - **Method:** `GET`
 - **Full URL:** `http://localhost:3000/admin/disasters`
+- **Query Params (Optional):**
+  - `page=1`
+  - `limit=10`
+  - `verified=true` *(Boolean string: true/false)*
 
 ---
 
-### 11.12 Get All Shelters
-- **Method:** `GET`
-- **Full URL:** `http://localhost:3000/admin/shelters`
+### 11.10 Verify Disaster Report
+- **Method:** `PATCH`
+- **Full URL:** `http://localhost:3000/admin/disasters/:id/verify`
+- **Headers:** `Content-Type: application/json`
+- **Path Params:** `id`: Disaster UUID
+- **Request Body (JSON):**
+```json
+{
+  "verified": true
+}
+```
 
 ---
 
-### 11.13 Get All Rescue Requests
+### 11.11 List Rescue Requests
 - **Method:** `GET`
 - **Full URL:** `http://localhost:3000/admin/rescue-requests`
+- **Query Params (Optional):**
+  - `page=1`
+  - `limit=10`
+  - `status=pending` *(Allowed: PENDING, ACKNOWLEDGED, DISPATCHED, IN_PROGRESS, RESCUED, CANCELLED)*
 
 ---
 
-### 11.14 Get All Missing Persons
-- **Method:** `GET`
-- **Full URL:** `http://localhost:3000/admin/missing-persons`
-
----
-
-### 11.15 Get All Campaigns
-- **Method:** `GET`
-- **Full URL:** `http://localhost:3000/admin/campaigns`
-
----
-
-### 11.16 Get All Community Posts
+### 11.12 List Community Posts
 - **Method:** `GET`
 - **Full URL:** `http://localhost:3000/admin/community-posts`
+- **Query Params (Optional):**
+  - `page=1`
+  - `limit=10`
+  - `status=posted`
+  - `includeDeleted=false`
+
+---
+
+### 11.13 Moderate Community Post Status
+- **Method:** `PATCH`
+- **Full URL:** `http://localhost:3000/admin/community-posts/:id/status`
+- **Headers:** `Content-Type: application/json`
+- **Path Params:** `id`: Community Post UUID
+- **Request Body (JSON):**
+```json
+{
+  "status": "APPROVED"
+}
+```
+
+---
+
+### 11.14 Soft Delete Community Post
+- **Method:** `DELETE`
+- **Full URL:** `http://localhost:3000/admin/community-posts/:id`
+- **Path Params:** `id`: Community Post UUID
+
+---
+
+### 11.15 Restore Soft-Deleted Community Post
+- **Method:** `PATCH`
+- **Full URL:** `http://localhost:3000/admin/community-posts/:id/restore`
+- **Path Params:** `id`: Community Post UUID
+
+---
+
+### 11.16 Generate Admin Report Summary
+- **Method:** `GET`
+- **Full URL:** `http://localhost:3000/admin/reports`
 
 ---
 

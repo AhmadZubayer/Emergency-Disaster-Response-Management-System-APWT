@@ -3,6 +3,8 @@ import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { signInUserDto } from './dto/sign-in-user.dto';
 import { RefreshJwtGuard } from './guards/refresh-jwt-guard';
+import { JwtGuard } from './guards/access-jwt-guard';
+import { CurrentUser } from './decorators/current-user.decorator';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 
 @Controller('auth')
@@ -32,5 +34,12 @@ export class AuthController {
   @ResponseMessage('Token refreshed successfully')
   refreshToken(@Req() req) {
     return this.authService.refreshToken(req.user.id);
+  }
+
+  @Post('logout')
+  @UseGuards(JwtGuard)
+  @ResponseMessage('User logged out successfully')
+  logout(@CurrentUser('id') userId: string) {
+    return this.authService.logout(userId);
   }
 }
