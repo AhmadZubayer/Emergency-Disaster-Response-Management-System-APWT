@@ -39,8 +39,6 @@ import { AdminModule } from './admin/admin.module';
     DonationsModule,
     DisasterModule,
     VolunteersModule,
-    ShelterModule,
-    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
