@@ -16,6 +16,7 @@ import { CommunityPostsModule } from './community-posts/community-posts.module';
 import { DonationsModule } from './donations/donations.module';
 import { DisasterModule } from './disaster/disaster.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { VolunteersModule } from './volunteers/volunteers.module';
     DonationsModule,
     DisasterModule,
     VolunteersModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
