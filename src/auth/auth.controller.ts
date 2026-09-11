@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { AuthService } from './auth.service';
+
 import { RegisterUserDto } from './dto/register-user.dto';
 import { signInUserDto } from './dto/sign-in-user.dto';
 import { RefreshJwtGuard } from './guards/refresh-jwt-guard';
@@ -25,21 +27,63 @@ export class AuthController {
 
   @Post('sign-in')
   @ResponseMessage('User signed in successfully')
-  login(@Body() loginDto: signInUserDto) {
-    return this.authService.signin(loginDto);
+  async login(
+    @Body() loginDto: signInUserDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.signin(loginDto);
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000,
+    });
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    return tokens;
   }
 
   @Post('refresh-token')
   @UseGuards(RefreshJwtGuard)
   @ResponseMessage('Token refreshed successfully')
-  refreshToken(@Req() req) {
-    return this.authService.refreshToken(req.user.id);
+  async refreshToken(@Req() req, @Res({ passthrough: true }) res: Response) {
+    const tokens = await this.authService.refreshToken(req.user.id);
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000,
+    });
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    return tokens;
   }
 
   @Post('logout')
   @UseGuards(JwtGuard)
   @ResponseMessage('User logged out successfully')
-  logout(@CurrentUser('id') userId: string) {
+  async logout(
+    @CurrentUser('id') userId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    res.clearCookie('access_token');
+    res.clearCookie('refresh_token');
     return this.authService.logout(userId);
   }
+
+  @Get('me')
+  @UseGuards(JwtGuard)
+  @ResponseMessage('User retrieved successfully')
+  getMe(@CurrentUser('id') userId: string) {
+    return this.authService.getMe(userId);
+  }
 }
+

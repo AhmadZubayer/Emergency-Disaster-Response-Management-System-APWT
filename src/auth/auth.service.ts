@@ -215,4 +215,18 @@ export class AuthService {
       message: 'Logged out successfully',
     };
   }
+
+  async getMe(userId: string) {
+    const user = await this.usersService.getUserById(userId);
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.auth?.email,
+      role: user.auth?.role || 'user',
+    };
+  }
 }
+

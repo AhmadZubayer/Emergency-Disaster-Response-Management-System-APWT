@@ -33,6 +33,7 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "cors": "^2.8.6",
     "dayjs": "^1.11.21",
     "dotenv": "^17.4.2",
     "http-status-codes": "^2.3.0",

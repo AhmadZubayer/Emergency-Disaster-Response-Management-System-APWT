@@ -20,7 +20,12 @@ export class RefreshJwtStrategy extends PassportStrategy(
     @InjectRepository(Auth) private readonly authRepo: Repository<Auth>,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: any) => {
+          return req?.cookies?.refresh_token || null;
+        },
+        ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ]),
       ignoreExpiration: false,
       secretOrKey: configService.getOrThrow<string>('REFRESH_JWT_SECRET'),
       passReqToCallback: true,
@@ -29,12 +34,14 @@ export class RefreshJwtStrategy extends PassportStrategy(
 
   async validate(req: Request, payload: JwtPayload) {
     const authHeader = req.get('Authorization');
+    const refreshToken =
+      req.cookies?.refresh_token ||
+      (authHeader ? authHeader.replace('Bearer ', '') : null);
 
-    if (!authHeader) {
+    if (!refreshToken) {
       throw new UnauthorizedException('Refresh token not found');
     }
 
-    const refreshToken = authHeader.replace('Bearer ', '');
 
     const authRecord = await this.authRepo.findOne({
       where: { user_id: payload.id },

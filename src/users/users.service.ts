@@ -22,13 +22,15 @@ export class UsersService {
   ) {}
 
   async createUser(createUsersDto: RegisterUserDto): Promise<Users> {
-    const existingPhone = await this.usersRepo.findOne({
-      where: { phone: createUsersDto.phoneNumber },
-    });
+    if (createUsersDto.phoneNumber) {
+      const existingPhone = await this.usersRepo.findOne({
+        where: { phone: createUsersDto.phoneNumber },
+      });
 
-    if (existingPhone) {
-      this.logger.warn(`Phone number conflict: ${createUsersDto.phoneNumber}`);
-      throw new ResourceConflictException('Phone number is already registered');
+      if (existingPhone) {
+        this.logger.warn(`Phone number conflict: ${createUsersDto.phoneNumber}`);
+        throw new ResourceConflictException('Phone number is already registered');
+      }
     }
 
     const user = this.usersRepo.create({
@@ -38,9 +40,10 @@ export class UsersService {
     });
 
     this.auditService.setCreated(user);
-    this.logger.log(`Created new user with phone: ${user.phone}`);
+    this.logger.log(`Created new user with name: ${user.name}`);
     return await this.usersRepo.save(user);
   }
+
 
   async getAllUsers(): Promise<Users[]> {
     return await this.usersRepo.find({
