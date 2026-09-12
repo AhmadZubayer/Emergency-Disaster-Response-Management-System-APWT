@@ -92,6 +92,24 @@ export class DonationsController {
     return this.donationsService.getCampaignById(id);
   }
 
+  @Get('campaigns/:id/applications')
+  @UseGuards(JwtGuard, RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ApiBearerAuth()
+  @ResponseMessage('Campaign aid applications retrieved successfully')
+  async getCampaignApplications(@Param('id') id: string) {
+    return this.donationsService.getCampaignApplications(id);
+  }
+
+  @Get('campaigns/:id/transactions')
+  @UseGuards(JwtGuard, RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ApiBearerAuth()
+  @ResponseMessage('Campaign transactions retrieved successfully')
+  async getCampaignTransactions(@Param('id') id: string) {
+    return this.donationsService.getCampaignTransactions(id);
+  }
+
   @Post('campaigns/:id/donate')
   @ResponseMessage('Donation session created successfully')
   async initiateDonation(
@@ -120,14 +138,17 @@ export class DonationsController {
 
   @Post('campaigns/:id/apply')
   @UseGuards(JwtGuard)
+  @UseInterceptors(FilesInterceptor('file'))
   @ApiBearerAuth()
   @ResponseMessage('Aid application submitted successfully')
   async applyForAid(
     @Param('id') campaignId: string,
     @CurrentUser('id') userId: string,
     @Body() dto: CreateApplicationDto,
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
-    return this.donationsService.applyForAid(campaignId, userId, dto);
+    const file = files && files.length > 0 ? files[0] : undefined;
+    return this.donationsService.applyForAid(campaignId, userId, dto, file);
   }
 
   @Get('my-applications')

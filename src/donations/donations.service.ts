@@ -403,18 +403,29 @@ export class DonationsService {
     campaignId: string,
     userId: string,
     dto: CreateApplicationDto,
+    file?: Express.Multer.File,
   ): Promise<DonationApplication> {
     if (!userId) {
       throw new BadRequestException('User ID is required to apply for aid');
     }
     await this.getCampaignById(campaignId);
 
+    let proofDocUrl = dto.proof_document_url || null;
+    if (file) {
+      const urls = await this.filesService.saveFiles([file], {
+        subFolder: '/donations/proofs',
+      });
+      if (urls && urls.length > 0) {
+        proofDocUrl = urls[0];
+      }
+    }
+
     const application = this.applicationRepository.create({
       campaign_id: campaignId,
       applicant_id: userId,
       reason: dto.reason,
       payout_details: dto.payout_details,
-      proof_document_url: dto.proof_document_url || null,
+      proof_document_url: proofDocUrl,
       status: ApplicationStatus.PENDING,
     });
 
@@ -436,7 +447,8 @@ export class DonationsService {
       campaign_id: app.campaign_id,
       campaign_title: app.campaign?.title || null,
       applicant_id: app.applicant_id,
-      applicant_name: app.applicant?.name || null,
+      applicant_name: app.applicant?.name || 'Applicant',
+      applicant_email: app.applicant?.auth?.email || null,
       applicant_phone: app.applicant?.phone || null,
       reason: app.reason,
       payout_details: app.payout_details,
@@ -450,10 +462,42 @@ export class DonationsService {
     };
   }
 
+  async getCampaignApplications(campaignId: string) {
+    const apps = await this.applicationRepository.find({
+      where: { campaign_id: campaignId },
+      relations: { campaign: true, applicant: { auth: true } },
+      order: { created_at: 'DESC' },
+    });
+    return apps.map((app) => this.formatApplication(app));
+  }
+
+  async getCampaignTransactions(campaignId: string) {
+    const txs = await this.transactionRepository.find({
+      where: { campaign_id: campaignId },
+      relations: { user: { auth: true } },
+      order: { created_at: 'DESC' },
+    });
+    return txs.map((tx) => ({
+      id: tx.id,
+      campaign_id: tx.campaign_id,
+      transaction_type: tx.transaction_type,
+      user_id: tx.user_id,
+      user_name: tx.user_name || tx.user?.name || (tx.is_anonymous ? 'Anonymous Donor' : 'Valued Supporter'),
+      user_email: tx.user_email || tx.user?.auth?.email || null,
+      is_anonymous: tx.is_anonymous,
+      amount: Number(tx.amount),
+      payment_gateway: tx.payment_gateway,
+      transaction_id: tx.transaction_id,
+      status: tx.status,
+      paid_at: tx.paid_at || tx.created_at,
+      created_at: tx.created_at,
+    }));
+  }
+
   async getUserApplications(userId: string) {
     const apps = await this.applicationRepository.find({
       where: { applicant_id: userId },
-      relations: { campaign: true },
+      relations: { campaign: true, applicant: { auth: true } },
       order: { created_at: 'DESC' },
     });
     return apps.map((app) => this.formatApplication(app));
@@ -480,7 +524,7 @@ export class DonationsService {
 
   async getAllApplications() {
     const apps = await this.applicationRepository.find({
-      relations: { campaign: true, applicant: true },
+      relations: { campaign: true, applicant: { auth: true } },
       order: { created_at: 'DESC' },
     });
     return apps.map((app) => this.formatApplication(app));
