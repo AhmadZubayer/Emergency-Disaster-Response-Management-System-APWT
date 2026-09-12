@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseFloatPipe,
@@ -18,6 +19,7 @@ import { JwtGuard } from 'src/auth/guards/access-jwt-guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { USER_ROLE } from 'src/auth/types/user-roles.type';
 import { CreateOrganizationRequestDto } from './dto/create-organization-request.dto';
+import { UpdateOrganizationRequestDto } from './dto/update-organization-request.dto';
 import { CreateResourceShortageDto } from './dto/create-resource-shortage.dto';
 import { CreateRouteReportDto } from './dto/create-route-report.dto';
 import { RegisterVolunteerDto } from './dto/register-volunteer.dto';
@@ -179,6 +181,48 @@ export class VolunteersController {
     return this.volunteersService.createOrganizationRequest(
       organizationUserId,
       dto,
+    );
+  }
+
+  @Get('organization-requests/my-created')
+  @UseGuards(RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ResponseMessage('My created organization requests retrieved successfully')
+  getMyCreatedOrganizationRequests(
+    @CurrentUser('id') organizationUserId: string,
+  ) {
+    return this.volunteersService.getMyCreatedOrganizationRequests(
+      organizationUserId,
+    );
+  }
+
+  @Patch('organization-requests/:id')
+  @UseGuards(RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ResponseMessage('Organization request updated successfully')
+  updateOrganizationRequest(
+    @CurrentUser('id') organizationUserId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateOrganizationRequestDto,
+  ) {
+    return this.volunteersService.updateOrganizationRequest(
+      organizationUserId,
+      id,
+      dto,
+    );
+  }
+
+  @Delete('organization-requests/:id')
+  @UseGuards(RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ResponseMessage('Organization request deleted successfully')
+  deleteOrganizationRequest(
+    @CurrentUser('id') organizationUserId: string,
+    @Param('id') id: string,
+  ) {
+    return this.volunteersService.deleteOrganizationRequest(
+      organizationUserId,
+      id,
     );
   }
 

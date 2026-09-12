@@ -18,6 +18,7 @@ import { IsNull, Not, Repository } from 'typeorm';
 import { CustomLoggerService } from 'src/common/logger/logger.service';
 import { AuditService } from 'src/common/audit/audit.service';
 import { CreateOrganizationRequestDto } from './dto/create-organization-request.dto';
+import { UpdateOrganizationRequestDto } from './dto/update-organization-request.dto';
 import { CreateResourceShortageDto } from './dto/create-resource-shortage.dto';
 import { CreateRouteReportDto } from './dto/create-route-report.dto';
 import { RegisterVolunteerDto } from './dto/register-volunteer.dto';
@@ -567,14 +568,80 @@ export class VolunteersService {
       organization_user_id: organizationUserId,
       title: dto.title,
       description: dto.description,
-      required_skills: this.cleanSkills(dto.required_skills),
+      required_skills: this.cleanSkills(dto.required_skills || []),
       location: dto.location,
       needed_volunteers: dto.needed_volunteers,
-      status: OrganizationRequestStatus.OPEN,
+      disaster_name: dto.disaster_name || null,
+      status: dto.status || OrganizationRequestStatus.OPEN,
     });
 
     this.auditService.setCreated(request, organizationUserId);
     return await this.organizationRequestRepo.save(request);
+  }
+
+  async getMyCreatedOrganizationRequests(
+    organizationUserId: string,
+  ): Promise<any[]> {
+    const requests = await this.organizationRequestRepo.find({
+      where: { organization_user_id: organizationUserId },
+      order: { created_at: 'DESC' },
+    });
+
+    return await Promise.all(
+      requests.map(async (req) => {
+        const joinedCount = await this.organizationJoinRepo.count({
+          where: { organization_request_id: req.id },
+        });
+        return {
+          ...req,
+          joined_volunteers: joinedCount,
+        };
+      }),
+    );
+  }
+
+  async updateOrganizationRequest(
+    organizationUserId: string,
+    id: string,
+    dto: UpdateOrganizationRequestDto,
+  ): Promise<OrganizationVolunteerRequest> {
+    const request = await this.organizationRequestRepo.findOne({
+      where: { id },
+    });
+    if (!request) {
+      throw new NotFoundException('Organization volunteer request not found');
+    }
+    if (request.organization_user_id !== organizationUserId) {
+      throw new ForbiddenException('You can only update your own volunteer requests');
+    }
+
+    if (dto.title) request.title = dto.title;
+    if (dto.description) request.description = dto.description;
+    if (dto.location) request.location = dto.location;
+    if (dto.needed_volunteers) request.needed_volunteers = dto.needed_volunteers;
+    if (dto.required_skills) request.required_skills = this.cleanSkills(dto.required_skills);
+    if (dto.disaster_name !== undefined) request.disaster_name = dto.disaster_name;
+    if (dto.status) request.status = dto.status;
+
+    this.auditService.setUpdated(request, organizationUserId);
+    return await this.organizationRequestRepo.save(request);
+  }
+
+  async deleteOrganizationRequest(
+    organizationUserId: string,
+    id: string,
+  ): Promise<OrganizationVolunteerRequest> {
+    const request = await this.organizationRequestRepo.findOne({
+      where: { id },
+    });
+    if (!request) {
+      throw new NotFoundException('Organization volunteer request not found');
+    }
+    if (request.organization_user_id !== organizationUserId) {
+      throw new ForbiddenException('You can only delete your own volunteer requests');
+    }
+
+    return await this.organizationRequestRepo.remove(request);
   }
 
   async getOpenOrganizationRequests(

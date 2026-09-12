@@ -1,13 +1,17 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
   Post,
   Query,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiQuery,
@@ -16,8 +20,10 @@ import {
 import { DonationsService } from './donations.service';
 import {
   CreateApplicationDto,
+  CreateCampaignDto,
   CreateDonationDto,
   ReviewApplicationDto,
+  UpdateCampaignDto,
 } from './dto';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { roles } from 'src/auth/decorators/roles.decorator';
@@ -30,6 +36,49 @@ import { ResponseMessage } from 'src/common/decorators/response-message.decorato
 @Controller('donations')
 export class DonationsController {
   constructor(private readonly donationsService: DonationsService) {}
+
+  @Post('campaigns')
+  @UseGuards(JwtGuard, RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @UseInterceptors(FilesInterceptor('file'))
+  @ApiBearerAuth()
+  @ResponseMessage('Donation campaign created successfully')
+  async createCampaign(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateCampaignDto,
+    @UploadedFiles() files?: Express.Multer.File[],
+  ) {
+    const file = files && files.length > 0 ? files[0] : undefined;
+    return this.donationsService.createCampaign(userId, dto, file);
+  }
+
+  @Patch('campaigns/:id')
+  @UseGuards(JwtGuard, RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @UseInterceptors(FilesInterceptor('file'))
+  @ApiBearerAuth()
+  @ResponseMessage('Donation campaign updated successfully')
+  async updateCampaign(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateCampaignDto,
+    @UploadedFiles() files?: Express.Multer.File[],
+  ) {
+    const file = files && files.length > 0 ? files[0] : undefined;
+    return this.donationsService.updateCampaign(userId, id, dto, file);
+  }
+
+  @Delete('campaigns/:id')
+  @UseGuards(JwtGuard, RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ApiBearerAuth()
+  @ResponseMessage('Donation campaign deleted successfully')
+  async deleteCampaign(
+    @CurrentUser('id') userId: string,
+    @Param('id') id: string,
+  ) {
+    return this.donationsService.deleteCampaign(userId, id);
+  }
 
   @Get('campaigns')
   @ResponseMessage('Donation campaigns retrieved successfully')
@@ -87,6 +136,14 @@ export class DonationsController {
   @ResponseMessage('User aid applications retrieved successfully')
   async getUserApplications(@CurrentUser('id') userId: string) {
     return this.donationsService.getUserApplications(userId);
+  }
+
+  @Get('my-donations')
+  @UseGuards(JwtGuard)
+  @ApiBearerAuth()
+  @ResponseMessage('User donations retrieved successfully')
+  async getUserDonations(@CurrentUser('id') userId: string) {
+    return this.donationsService.getUserDonations(userId);
   }
 
   @Get('applications')

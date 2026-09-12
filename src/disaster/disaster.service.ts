@@ -3,10 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Disaster } from './entities/disaster.entity';
 import { CreateDisasterDto } from './dto/create-disaster.dto';
+import { UpdateDisasterDto } from './dto/update-disaster.dto';
 import { MailerService } from 'src/mailer/mailer.service';
 import { Auth } from 'src/auth/entities/auth.entity';
 import { CustomLoggerService } from 'src/common/logger/logger.service';
 import { AuditService } from 'src/common/audit/audit.service';
+import { EntityNotFoundException } from 'src/common/exceptions/entity-not-found.exception';
 
 @Injectable()
 export class DisasterService {
@@ -52,4 +54,42 @@ export class DisasterService {
 
 		return saved;
 	}
+
+	async findAll(): Promise<Disaster[]> {
+		return await this.disasterRepo.find({
+			order: { created_at: 'DESC' },
+		});
+	}
+
+	async findOne(id: string): Promise<Disaster> {
+		const disaster = await this.disasterRepo.findOne({ where: { id } });
+		if (!disaster) {
+			throw new EntityNotFoundException('Disaster', id);
+		}
+		return disaster;
+	}
+
+	async update(id: string, dto: UpdateDisasterDto): Promise<Disaster> {
+		const disaster = await this.findOne(id);
+		if (dto.disasterName) disaster.disaster_name = dto.disasterName;
+		if (dto.impactedLocation) disaster.impacted_location = dto.impactedLocation;
+		if (dto.impactTime) disaster.impact_time = new Date(dto.impactTime);
+		if (dto.type) disaster.type = dto.type;
+
+		this.auditService.setUpdated(disaster);
+		return await this.disasterRepo.save(disaster);
+	}
+
+	async markAsSafe(id: string): Promise<Disaster> {
+		const disaster = await this.findOne(id);
+		disaster.is_verified = true;
+		this.auditService.setUpdated(disaster);
+		return await this.disasterRepo.save(disaster);
+	}
+
+	async remove(id: string): Promise<Disaster> {
+		const disaster = await this.findOne(id);
+		return await this.disasterRepo.remove(disaster);
+	}
 }
+

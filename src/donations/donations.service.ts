@@ -8,6 +8,7 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import Stripe from 'stripe';
 import { MailerService } from 'src/mailer/mailer.service';
+import { FilesService } from 'src/files/files.service';
 import { StripePaymentException } from 'src/common/exceptions/stripe-payment.exception';
 import { CustomLoggerService } from 'src/common/logger/logger.service';
 import { AuditService } from 'src/common/audit/audit.service';
@@ -18,14 +19,17 @@ import {
 } from './entities';
 import {
   ApplicationStatus,
+  CampaignStatus,
   PaymentGateway,
   TransactionStatus,
   TransactionType,
 } from './enums';
 import {
   CreateApplicationDto,
+  CreateCampaignDto,
   CreateDonationDto,
   ReviewApplicationDto,
+  UpdateCampaignDto,
 } from './dto';
 
 @Injectable()
@@ -40,6 +44,7 @@ export class DonationsService {
     private readonly transactionRepository: Repository<DonationTransaction>,
     @InjectRepository(DonationApplication)
     private readonly applicationRepository: Repository<DonationApplication>,
+    private readonly filesService: FilesService,
     private readonly configService: ConfigService,
     private readonly mailerService: MailerService,
     private readonly auditService: AuditService,
@@ -56,14 +61,117 @@ export class DonationsService {
     });
   }
 
-  async getCampaignById(id: string): Promise<DonationCampaign> {
+  async getCampaignById(id: string): Promise<any> {
     const campaign = await this.campaignRepository.findOne({
       where: { id },
     });
     if (!campaign) {
       throw new NotFoundException('Donation campaign not found');
     }
-    return campaign;
+
+    const donorsCount = await this.transactionRepository.count({
+      where: {
+        campaign_id: id,
+        status: TransactionStatus.COMPLETED,
+      },
+    });
+
+    return {
+      ...campaign,
+      donors_count: donorsCount,
+    };
+  }
+
+  async createCampaign(
+    userId: string,
+    dto: CreateCampaignDto,
+    file?: Express.Multer.File,
+  ): Promise<DonationCampaign> {
+    let photoUrl = dto.photo_url || null;
+
+    if (file) {
+      const uploadedUrls = await this.filesService.saveFiles([file], {
+        subFolder: '/donation-campaign-photos',
+        allowedMimeTypes: [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/webp',
+        ],
+      });
+      if (uploadedUrls.length > 0) {
+        photoUrl = uploadedUrls[0];
+      }
+    }
+
+    const campaign = this.campaignRepository.create({
+      title: dto.title,
+      description: dto.description,
+      target_amount: dto.target_amount,
+      raised_amount: 0,
+      photo_url: photoUrl,
+      start_date: new Date(dto.start_date),
+      end_date: new Date(dto.end_date),
+      status: dto.status || CampaignStatus.ACTIVE,
+      created_by_user_id: userId,
+    });
+
+    this.auditService.setCreated(campaign, userId);
+    return await this.campaignRepository.save(campaign);
+  }
+
+  async updateCampaign(
+    userId: string,
+    id: string,
+    dto: UpdateCampaignDto,
+    file?: Express.Multer.File,
+  ): Promise<DonationCampaign> {
+    const campaign = await this.campaignRepository.findOne({
+      where: { id },
+    });
+    if (!campaign) {
+      throw new NotFoundException('Donation campaign not found');
+    }
+
+    if (file) {
+      const uploadedUrls = await this.filesService.saveFiles([file], {
+        subFolder: '/donation-campaign-photos',
+        allowedMimeTypes: [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/webp',
+        ],
+      });
+      if (uploadedUrls.length > 0) {
+        campaign.photo_url = uploadedUrls[0];
+      }
+    } else if (dto.photo_url !== undefined) {
+      campaign.photo_url = dto.photo_url;
+    }
+
+    if (dto.title) campaign.title = dto.title;
+    if (dto.description) campaign.description = dto.description;
+    if (dto.target_amount !== undefined) campaign.target_amount = dto.target_amount;
+    if (dto.start_date) campaign.start_date = new Date(dto.start_date);
+    if (dto.end_date) campaign.end_date = new Date(dto.end_date);
+    if (dto.status) campaign.status = dto.status;
+
+    this.auditService.setUpdated(campaign, userId);
+    return await this.campaignRepository.save(campaign);
+  }
+
+  async deleteCampaign(
+    userId: string,
+    id: string,
+  ): Promise<DonationCampaign> {
+    const campaign = await this.campaignRepository.findOne({
+      where: { id },
+    });
+    if (!campaign) {
+      throw new NotFoundException('Donation campaign not found');
+    }
+    return await this.campaignRepository.remove(campaign);
   }
 
   async initiateDonation(
@@ -109,8 +217,15 @@ export class DonationsService {
       amount: dto.amount,
     });
 
-    const baseUrl =
-      this.configService.get<string>('APP_URL') || 'http://localhost:3000';
+    let baseUrl =
+      this.configService.get<string>('CLIENT_URL') ||
+      this.configService.get<string>('FRONTEND_URL') ||
+      this.configService.get<string>('APP_URL') ||
+      'http://localhost:3000';
+
+    if (baseUrl.includes(':5000')) {
+      baseUrl = baseUrl.replace(':5000', ':3000');
+    }
 
     if (!this.stripe) {
       const stripeSecretKey =
@@ -142,8 +257,8 @@ export class DonationsService {
           },
         ],
         mode: 'payment',
-        success_url: `${baseUrl}/donations/payment/success?session_id={CHECKOUT_SESSION_ID}&tx_id=${transactionId}`,
-        cancel_url: `${baseUrl}/donations/payment/cancel?tx_id=${transactionId}`,
+        success_url: `${baseUrl}/donations/${campaign.id}?payment=success&session_id={CHECKOUT_SESSION_ID}&tx_id=${transactionId}`,
+        cancel_url: `${baseUrl}/donations/${campaign.id}?payment=cancelled&tx_id=${transactionId}`,
         metadata: {
           transaction_id: transactionId,
           campaign_id: campaign.id,
@@ -173,7 +288,7 @@ export class DonationsService {
   async handlePaymentSuccess(sessionId: string, txId: string) {
     const transaction = await this.transactionRepository.findOne({
       where: { transaction_id: txId },
-      relations: { campaign: true },
+      relations: { campaign: { creator: true }, user: true },
     });
 
     if (!transaction) {
@@ -182,9 +297,17 @@ export class DonationsService {
 
     if (transaction.status === TransactionStatus.COMPLETED) {
       return {
+        status: 'success',
         message: 'Payment already verified and completed',
         transaction_id: transaction.transaction_id,
-        amount: transaction.amount,
+        amount: Number(transaction.amount),
+        paid_at: transaction.paid_at || new Date(),
+        payment_gateway: transaction.payment_gateway,
+        is_anonymous: transaction.is_anonymous,
+        donor_name: transaction.is_anonymous ? 'Anonymous Donor' : (transaction.user_name || transaction.user?.name || 'Valued Donor'),
+        donor_contact: transaction.is_anonymous ? 'Anonymous' : (transaction.user_email || transaction.user?.phone || 'N/A'),
+        campaign_title: transaction.campaign?.title || 'Emergency Relief Fund',
+        relief_org: transaction.campaign?.creator?.name || 'Emergency Disaster Response Management System',
       };
     }
 
@@ -222,6 +345,7 @@ export class DonationsService {
 
     const campaign = await this.campaignRepository.findOne({
       where: { id: transaction.campaign_id },
+      relations: { creator: true },
     });
     if (campaign) {
       campaign.raised_amount =
@@ -248,7 +372,14 @@ export class DonationsService {
       status: 'success',
       message: 'Donation successfully completed! Thank you for your support.',
       transaction_id: transaction.transaction_id,
-      amount: transaction.amount,
+      amount: Number(transaction.amount),
+      paid_at: transaction.paid_at || new Date(),
+      payment_gateway: transaction.payment_gateway,
+      is_anonymous: transaction.is_anonymous,
+      donor_name: transaction.is_anonymous ? 'Anonymous Donor' : (transaction.user_name || transaction.user?.name || 'Valued Donor'),
+      donor_contact: transaction.is_anonymous ? 'Anonymous' : (transaction.user_email || transaction.user?.phone || 'N/A'),
+      campaign_title: campaign?.title || transaction.campaign?.title || 'Emergency Relief Fund',
+      relief_org: campaign?.creator?.name || transaction.campaign?.creator?.name || 'Emergency Disaster Response Management System',
     };
   }
 
@@ -326,6 +457,25 @@ export class DonationsService {
       order: { created_at: 'DESC' },
     });
     return apps.map((app) => this.formatApplication(app));
+  }
+
+  async getUserDonations(userId: string) {
+    const txs = await this.transactionRepository.find({
+      where: { user_id: userId, transaction_type: TransactionType.DONATE },
+      relations: { campaign: true },
+      order: { created_at: 'DESC' },
+    });
+    return txs.map((tx) => ({
+      id: tx.id,
+      campaign_id: tx.campaign_id,
+      campaign_title: tx.campaign?.title || 'General Relief Fund',
+      amount: Number(tx.amount),
+      payment_gateway: tx.payment_gateway,
+      transaction_id: tx.transaction_id,
+      status: tx.status,
+      paid_at: tx.paid_at || tx.created_at,
+      created_at: tx.created_at,
+    }));
   }
 
   async getAllApplications() {

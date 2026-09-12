@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Patch,
   Put,
   UploadedFiles,
@@ -18,6 +19,13 @@ import { ResponseMessage } from 'src/common/decorators/response-message.decorato
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('profile')
+  @UseGuards(JwtGuard)
+  @ResponseMessage('User profile retrieved successfully')
+  async getProfile(@CurrentUser('id') userId: string) {
+    return await this.usersService.getUserById(userId);
+  }
 
   @Patch('update-profile')
   @UseGuards(JwtGuard)
@@ -52,7 +60,7 @@ export class UsersController {
       file,
     );
   }
-
+  
   @Patch('is-safe')
   @UseGuards(JwtGuard)
   @ResponseMessage('Safety status updated successfully')
@@ -60,3 +68,4 @@ export class UsersController {
     return await this.usersService.toggleIsSafe(userId);
   }
 }
+

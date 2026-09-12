@@ -39,6 +39,9 @@ export class DonationCampaign extends AuditEntity {
   @Column({ type: 'timestamp' })
   end_date: Date;
 
+  @Column({ type: 'varchar', nullable: true })
+  photo_url: string | null;
+
   @Column({ type: 'uuid', nullable: true })
   created_by_user_id: string | null;
 

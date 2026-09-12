@@ -71,7 +71,10 @@ export class UsersService {
     updateUserProfileDto: UpdateUserProfileDto,
     file?: Express.Multer.File,
   ): Promise<Users> {
-    const user = await this.usersRepo.findOne({ where: { id } });
+    const user = await this.usersRepo.findOne({
+      where: { id },
+      relations: { auth: true },
+    });
     if (!user) {
       throw new EntityNotFoundException('User', id);
     }
@@ -89,10 +92,79 @@ export class UsersService {
       user.photo_url = urls[0];
     }
 
-    Object.assign(user, updateUserProfileDto);
+    const { address, ...rest } = updateUserProfileDto as any;
+
+    if (rest.phone !== undefined) {
+      const trimmedPhone = rest.phone ? String(rest.phone).trim() : '';
+      if (!trimmedPhone) {
+        user.phone = null as any;
+      } else if (trimmedPhone !== user.phone) {
+        const existingWithPhone = await this.usersRepo.findOne({
+          where: { phone: trimmedPhone },
+        });
+        if (existingWithPhone && existingWithPhone.id !== id) {
+          throw new ResourceConflictException(
+            'Phone number is already registered by another account',
+          );
+        }
+        user.phone = trimmedPhone;
+      }
+      delete rest.phone;
+    }
+
+    if (rest.name !== undefined && typeof rest.name === 'string' && rest.name.trim()) {
+      user.name = rest.name.trim();
+      delete rest.name;
+    }
+
+    if (rest.gps_lat !== undefined) {
+      user.gps_lat = rest.gps_lat ? Number(rest.gps_lat) : (null as any);
+      delete rest.gps_lat;
+    }
+
+    if (rest.gps_lng !== undefined) {
+      user.gps_lng = rest.gps_lng ? Number(rest.gps_lng) : (null as any);
+      delete rest.gps_lng;
+    }
+
+    if (rest.emergency_message !== undefined) {
+      user.emergency_message = rest.emergency_message ? String(rest.emergency_message).trim() : (null as any);
+      delete rest.emergency_message;
+    }
+
+    if (rest.medical_information !== undefined) {
+      user.medical_information = rest.medical_information ? String(rest.medical_information).trim() : (null as any);
+      delete rest.medical_information;
+    }
+
+    delete rest.email;
+
+    if (address) {
+      user.address = {
+        ...(user.address || {}),
+        ...address,
+      };
+    } else if (rest.house || rest.city || rest.district || rest.country) {
+      user.address = {
+        ...(user.address || {}),
+        ...(rest.house !== undefined && { house: rest.house }),
+        ...(rest.city !== undefined && { city: rest.city }),
+        ...(rest.district !== undefined && { district: rest.district }),
+        ...(rest.country !== undefined && { country: rest.country }),
+      };
+      delete rest.house;
+      delete rest.city;
+      delete rest.district;
+      delete rest.country;
+    }
+
+    Object.assign(user, rest);
     this.auditService.setUpdated(user, id);
     this.logger.log(`Updated user profile for ID: ${id}`);
-    return await this.usersRepo.save(user);
+    await this.usersRepo.save(user);
+
+    const updatedUser = await this.getUserById(id);
+    return updatedUser || user;
   }
 
   async completeProfile(
