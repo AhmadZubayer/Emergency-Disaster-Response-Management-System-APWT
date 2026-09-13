@@ -172,7 +172,7 @@ export class VolunteersController {
 
   @Post('organization-requests')
   @UseGuards(RolesGuard)
-  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN, USER_ROLE.VOLUNTEER, USER_ROLE.USER)
   @ResponseMessage('Organization request created successfully')
   createOrganizationRequest(
     @CurrentUser('id') organizationUserId: string,
@@ -186,7 +186,7 @@ export class VolunteersController {
 
   @Get('organization-requests/my-created')
   @UseGuards(RolesGuard)
-  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN, USER_ROLE.VOLUNTEER, USER_ROLE.USER)
   @ResponseMessage('My created organization requests retrieved successfully')
   getMyCreatedOrganizationRequests(
     @CurrentUser('id') organizationUserId: string,
@@ -198,7 +198,7 @@ export class VolunteersController {
 
   @Patch('organization-requests/:id')
   @UseGuards(RolesGuard)
-  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN, USER_ROLE.VOLUNTEER, USER_ROLE.USER)
   @ResponseMessage('Organization request updated successfully')
   updateOrganizationRequest(
     @CurrentUser('id') organizationUserId: string,
@@ -214,7 +214,7 @@ export class VolunteersController {
 
   @Delete('organization-requests/:id')
   @UseGuards(RolesGuard)
-  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN, USER_ROLE.VOLUNTEER, USER_ROLE.USER)
   @ResponseMessage('Organization request deleted successfully')
   deleteOrganizationRequest(
     @CurrentUser('id') organizationUserId: string,
