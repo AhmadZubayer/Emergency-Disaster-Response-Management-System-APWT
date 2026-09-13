@@ -271,8 +271,22 @@ export class AdminService {
     return this.buildPaginationResult(items, total, page, limit);
   }
 
-  async createRescueRequest(dto: { requester_name?: string; contact_phone?: string; location?: string; address?: string; urgency_level?: string; details?: string; description?: string }) {
+  async createRescueRequest(
+    dto: { requester_name?: string; contact_phone?: string; location?: string; address?: string; urgency_level?: string; details?: string; description?: string; user_id?: string },
+    adminUserId?: string,
+  ) {
+    let userId = dto.user_id || adminUserId;
+    if (!userId) {
+      const firstUser = await this.usersRepo.findOne({ where: {} });
+      userId = firstUser?.id;
+    }
+
+    if (!userId) {
+      throw new BadRequestException('A valid user_id is required to create a rescue request');
+    }
+
     const request = this.rescueRequestRepo.create({
+      user_id: userId,
       contact_phone: dto.contact_phone || '+8801700000000',
       address: dto.address || dto.location || 'Unknown Location',
       latitude: 23.8103,

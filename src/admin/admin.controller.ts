@@ -14,6 +14,7 @@ import { roles } from 'src/auth/decorators/roles.decorator';
 import { JwtGuard } from 'src/auth/guards/access-jwt-guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { USER_ROLE } from 'src/auth/types/user-roles.type';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
@@ -155,9 +156,10 @@ export class AdminController {
   @Post('rescue-requests')
   @ApiOperation({ summary: 'Create an emergency rescue request' })
   createRescueRequest(
-    @Body() dto: { requester_name?: string; contact_phone?: string; location: string; urgency_level?: string; details?: string },
+    @CurrentUser('id') adminUserId: string,
+    @Body() dto: { requester_name?: string; contact_phone?: string; location?: string; address?: string; urgency_level?: string; details?: string; description?: string; user_id?: string },
   ) {
-    return this.adminService.createRescueRequest(dto);
+    return this.adminService.createRescueRequest(dto, adminUserId);
   }
 
   @Get('community-posts')
