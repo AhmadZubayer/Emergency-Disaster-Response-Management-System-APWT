@@ -245,5 +245,77 @@ export class AuthService {
       phone: user.phone,
     };
   }
+
+  async validateGoogleUser(profile: {
+    email: string;
+    fullName?: string;
+    picture?: string;
+  }) {
+    let authRecord = await this.authRepo.findOne({
+      where: { email: profile.email },
+    });
+
+    if (!authRecord) {
+      const randomPassword = crypto.randomBytes(16).toString('hex');
+      const hashPass = await bcrypt.hash(randomPassword, 10);
+
+      const createdUser = await this.usersService.createUser({
+        name: profile.fullName || profile.email.split('@')[0],
+        email: profile.email,
+        password: randomPassword,
+      } as any);
+
+      authRecord = this.authRepo.create({
+        user_id: createdUser.id,
+        email: profile.email,
+        password: hashPass,
+        role: USER_ROLE.USER,
+        email_verified: true,
+      });
+
+      this.auditService.setCreated(authRecord, createdUser.id);
+      await this.authRepo.save(authRecord);
+
+      this.logger.logBusinessEvent('User registered via Google OAuth', 'AuthService', {
+        userId: createdUser.id,
+        email: profile.email,
+      });
+    }
+
+    const payload: JwtPayload = {
+      id: authRecord.user_id,
+      email: authRecord.email,
+      role: authRecord.role,
+    };
+
+    const accessToken = this.jwtTokenService.generateAccessToken(payload);
+    const refreshToken = this.jwtTokenService.generateRefreshToken(payload);
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+    authRecord.refresh_token = hashedRefreshToken;
+    this.auditService.setUpdated(authRecord, authRecord.user_id);
+    await this.authRepo.save(authRecord);
+
+    this.logger.logBusinessEvent('User logged in via Google OAuth', 'AuthService', {
+      userId: authRecord.user_id,
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      user_id: authRecord.user_id,
+      role: authRecord.role,
+    };
+  }
+
+  async googleSignIn(dto: { email: string; name?: string; token?: string }) {
+    if (!dto.email) {
+      throw new BadRequestException('Email is required for Google Sign-In');
+    }
+    return this.validateGoogleUser({
+      email: dto.email,
+      fullName: dto.name,
+    });
+  }
 }
 
