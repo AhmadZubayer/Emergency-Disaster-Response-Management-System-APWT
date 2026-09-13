@@ -185,12 +185,36 @@ export class AdminService {
     }
 
     const normalized = status.toLowerCase();
-    if (!Object.values(VolunteerVerificationStatus).includes(normalized as VolunteerVerificationStatus)) {
-      throw new BadRequestException('Unsupported volunteer verification status');
+    const isApproved = normalized === 'verified' || normalized === 'approved';
+    const isRejected = normalized === 'rejected';
+
+    if (isApproved) {
+      volunteer.verification_status = VolunteerVerificationStatus.VERIFIED;
+      volunteer.available = true;
+    } else if (isRejected) {
+      volunteer.verification_status = VolunteerVerificationStatus.REJECTED;
+      volunteer.available = false;
+      volunteer.on_duty = false;
+    } else {
+      volunteer.verification_status = VolunteerVerificationStatus.PENDING;
     }
 
-    volunteer.verification_status = normalized as VolunteerVerificationStatus;
-    return this.volunteerRepo.save(volunteer);
+    const saved = await this.volunteerRepo.save(volunteer);
+
+    const authRecord = await this.authRepo.findOne({
+      where: { user_id: volunteer.user_id },
+    });
+
+    if (authRecord) {
+      if (isApproved) {
+        authRecord.role = USER_ROLE.VOLUNTEER;
+      } else if (isRejected && authRecord.role === USER_ROLE.VOLUNTEER) {
+        authRecord.role = USER_ROLE.USER;
+      }
+      await this.authRepo.save(authRecord);
+    }
+
+    return saved;
   }
 
   async listReliefOrgs(query: ReliefOrgQuery) {
