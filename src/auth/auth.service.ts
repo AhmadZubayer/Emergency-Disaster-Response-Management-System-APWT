@@ -215,4 +215,23 @@ export class AuthService {
       message: 'Logged out successfully',
     };
   }
+
+  async getMe(userId: string) {
+    const authRecord = await this.authRepo.findOne({
+      where: { user_id: userId },
+      relations: { user: true },
+    });
+
+    if (!authRecord) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      id: authRecord.user_id,
+      name: authRecord.user?.name || authRecord.email.split('@')[0],
+      email: authRecord.email,
+      role: authRecord.role,
+      phone: authRecord.user?.phone,
+    };
+  }
 }
