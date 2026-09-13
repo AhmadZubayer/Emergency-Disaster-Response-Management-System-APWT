@@ -16,7 +16,7 @@ export class Users extends AuditEntity {
   @Column({ type: 'varchar' })
   name: string;
 
-  @Column({ type: 'varchar', unique: true })
+  @Column({ type: 'varchar', unique: true, nullable: true })
   phone: string;
 
   @Column({ type: 'varchar', nullable: true })

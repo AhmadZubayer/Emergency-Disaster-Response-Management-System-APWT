@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -16,11 +18,17 @@ import { CommunityPostsModule } from './community-posts/community-posts.module';
 import { DonationsModule } from './donations/donations.module';
 import { DisasterModule } from './disaster/disaster.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
+import { ShelterModule } from './shelter/shelter.module';
 import { AdminModule } from './admin/admin.module';
+import { TrashModule } from './trash/trash.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'user-files'),
+      serveRoot: '/user-files',
+    }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -38,7 +46,9 @@ import { AdminModule } from './admin/admin.module';
     DonationsModule,
     DisasterModule,
     VolunteersModule,
+    ShelterModule,
     AdminModule,
+    TrashModule,
   ],
   controllers: [AppController],
   providers: [AppService],

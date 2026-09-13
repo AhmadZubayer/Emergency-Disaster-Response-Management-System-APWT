@@ -1,21 +1,30 @@
 import {
   Column,
-  CreateDateColumn,
   Entity,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
+import { AuditEntity } from 'src/common/entities/audit.entity';
 
 export enum DisasterType {
   CYCLONE = 'cyclone',
   FLOOD = 'flood',
+  FLASH_FLOOD = 'flash_flood',
+  HEAVY_RAIN = 'heavy_rain',
+  DROUGHT = 'drought',
+  EARTHQUAKE = 'earthquake',
+  LANDSLIDE = 'landslide',
+  WILDFIRE = 'wildfire',
   TSUNAMI = 'tsunami',
   HEATWAVE = 'heatwave',
-  WILDFIRE = 'wildfire',
+  COLD_WAVE = 'cold_wave',
+  RIVER_EROSION = 'river_erosion',
+  STORM_SURGE = 'storm_surge',
+  TORNADO = 'tornado',
+  AVALANCHE = 'avalanche',
 }
 
 @Entity('disasters')
-export class Disaster {
+export class Disaster extends AuditEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -28,15 +37,9 @@ export class Disaster {
   @Column({ type: 'timestamp' })
   impact_time: Date;
 
-  @Column({ type: 'enum', enum: DisasterType })
-  type: DisasterType;
+  @Column({ type: 'varchar', default: DisasterType.FLOOD })
+  type: string;
 
   @Column({ type: 'boolean', default: false })
   is_verified: boolean;
-
-  @CreateDateColumn()
-  created_at: Date;
-
-  @UpdateDateColumn()
-  updated_at: Date;
 }

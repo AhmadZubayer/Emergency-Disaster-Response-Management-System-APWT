@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,10 +8,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RescueRequest, RescueStatus } from './entities/rescue-request.entity';
 import { CreateRescueRequestDto } from './dto/create-rescue-request.dto';
+import { UpdateRescueRequestDto } from './dto/update-rescue-request.dto';
 import { UpdateRescueRequestStatusDto } from './dto/update-rescue-request-status.dto';
 import { FilesService } from 'src/files/files.service';
 import { CustomLoggerService } from 'src/common/logger/logger.service';
-import { AuditService } from 'src/common/audit/audit.service';
+import { AuditService, AuditTask } from 'src/common/audit/audit.service';
+import { TrashService } from 'src/trash/trash.service';
+import { TrashItemType } from 'src/trash/enums/trash-item-type.enum';
 
 @Injectable()
 export class RescueRequestsService {
@@ -21,6 +25,7 @@ export class RescueRequestsService {
     private readonly rescueRepository: Repository<RescueRequest>,
     private readonly filesService: FilesService,
     private readonly auditService: AuditService,
+    private readonly trashService: TrashService,
   ) {}
 
   async create(
@@ -77,19 +82,69 @@ export class RescueRequestsService {
     return request;
   }
 
-  async findAll(): Promise<RescueRequest[]> {
-    return await this.rescueRepository.find({
-      relations: { user: true },
-      order: { created_at: 'DESC' },
-    });
+  async findAll(search?: string): Promise<RescueRequest[]> {
+    if (!search || !search.trim()) {
+      return await this.rescueRepository.find({
+        relations: { user: true },
+        order: { created_at: 'DESC' },
+      });
+    }
+    const qb = this.rescueRepository.createQueryBuilder('rr')
+      .leftJoinAndSelect('rr.user', 'user')
+      .where(
+        '(rr.address ILIKE :search OR rr.description ILIKE :search OR rr.contact_phone ILIKE :search OR rr.status::text ILIKE :search OR rr.urgency_level::text ILIKE :search)',
+        { search: `%${search.trim()}%` }
+      )
+      .orderBy('rr.created_at', 'DESC');
+    return await qb.getMany();
+  }
+
+  async update(
+    id: string,
+    userId: string,
+    role: string,
+    dto: UpdateRescueRequestDto,
+    file?: Express.Multer.File,
+  ): Promise<RescueRequest> {
+    const request = await this.findOne(id);
+    this.checkPermission(request, userId, role);
+
+    if (file) {
+      if (request.photo_url) {
+        await this.filesService.deleteFile(request.photo_url);
+      }
+      const uploadedUrls = await this.filesService.saveFiles([file], {
+        subFolder: '/rescue-photos',
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp'],
+      });
+      if (uploadedUrls.length > 0) {
+        request.photo_url = uploadedUrls[0];
+      }
+    }
+
+    Object.assign(request, dto);
+    this.auditService.setUpdated(request, userId);
+    const updatedRequest = await this.rescueRepository.save(request);
+
+    await this.auditService.logAudit(
+      AuditTask.UPDATE,
+      userId,
+      `Updated rescue request ID: ${id}`,
+    );
+
+    return updatedRequest;
   }
 
   async updateStatus(
     id: string,
     dto: UpdateRescueRequestStatusDto,
     updaterId?: string,
+    role?: string,
   ): Promise<RescueRequest> {
     const request = await this.findOne(id);
+    if (updaterId && role) {
+      this.checkPermission(request, updaterId, role);
+    }
     request.status = dto.status;
     if (dto.assigned_rescuer_id !== undefined) {
       request.assigned_rescuer_id = dto.assigned_rescuer_id;
@@ -113,5 +168,47 @@ export class RescueRequestsService {
     request.status = RescueStatus.CANCELLED;
     this.auditService.setUpdated(request, userId);
     return await this.rescueRepository.save(request);
+  }
+
+  async remove(
+    id: string,
+    userId: string,
+    role: string,
+  ): Promise<{ message: string }> {
+    const request = await this.findOne(id);
+    this.checkPermission(request, userId, role);
+
+    await this.trashService.addToTrash(
+      userId,
+      TrashItemType.RESCUE_REQUEST,
+      request.id,
+      request.address
+        ? `Rescue needed in ${request.address}`
+        : `Rescue request (${request.urgency_level})`,
+      request,
+    );
+
+    this.auditService.setDeleted(request, userId);
+    await this.rescueRepository.remove(request);
+
+    await this.auditService.logAudit(
+      AuditTask.DELETE,
+      userId,
+      `Moved rescue request ID: ${id} to trash`,
+    );
+
+    return { message: `Rescue request "${id}" has been moved to trash.` };
+  }
+
+  private checkPermission(
+    request: RescueRequest,
+    userId: string,
+    role: string,
+  ): void {
+    if (request.user_id !== userId && role !== 'admin') {
+      throw new ForbiddenException(
+        'You do not have permission to modify this rescue request',
+      );
+    }
   }
 }

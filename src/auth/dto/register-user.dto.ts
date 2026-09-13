@@ -18,9 +18,9 @@ export class RegisterUserDto {
   @IsNotEmpty()
   email: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @Matches(/^\+?[1-9]\d{1,14}$/, { message: 'Invalid phone number format' })
-  phoneNumber: string;
+  phoneNumber?: string;
 
   @Matches(
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,

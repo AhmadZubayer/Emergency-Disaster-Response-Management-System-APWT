@@ -5,12 +5,14 @@ import { MissingPersonsService } from './missing-persons.service';
 import { MissingPersonsController } from './missing-persons.controller';
 import { FilesModule } from 'src/files/files.module';
 import { UsersModule } from 'src/users/users.module';
+import { TrashModule } from 'src/trash/trash.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([MissingPerson]),
     FilesModule,
     UsersModule,
+    TrashModule,
   ],
   controllers: [MissingPersonsController],
   providers: [MissingPersonsService],

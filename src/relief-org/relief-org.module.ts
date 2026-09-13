@@ -1,21 +1,27 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-
 import { ReliefOrg } from './entities/relief-org.entity';
-import { Donation } from './entities/donation.entity';
-import { Shelter } from './entities/shelter.entity';
-
 import { ReliefOrgService } from './relief-org.service';
 import { ReliefOrgController } from './relief-org.controller';
+import { FilesModule } from 'src/files/files.module';
+import { MailerModule } from 'src/mailer/mailer.module';
 import { AuthModule } from 'src/auth/auth.module';
+import { UsersModule } from 'src/users/users.module';
+import { DisasterModule } from 'src/disaster/disaster.module';
+import { VolunteersModule } from 'src/volunteers/volunteers.module';
+import { DonationsModule } from 'src/donations/donations.module';
+import { Auth } from 'src/auth/entities/auth.entity';
 
 @Module({
   imports: [
-    // এখন আর User stub নেই — Users entity UsersModule-এ আছে
-    TypeOrmModule.forFeature([ReliefOrg, Donation, Shelter]),
-
-    // JwtGuard ও RolesGuard ব্যবহার করতে AuthModule import করতে হবে
+    TypeOrmModule.forFeature([ReliefOrg, Auth]),
+    FilesModule,
+    MailerModule,
     AuthModule,
+    UsersModule,
+    DisasterModule,
+    VolunteersModule,
+    DonationsModule,
   ],
   controllers: [ReliefOrgController],
   providers: [ReliefOrgService],

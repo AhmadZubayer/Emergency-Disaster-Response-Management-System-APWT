@@ -11,26 +11,33 @@ import {
   RescueRequest,
   RescueStatus,
 } from 'src/rescue-requests/entities/rescue-request.entity';
+import { MissingPerson } from 'src/missing-persons/entities/missing-person.entity';
 import { UsersService } from 'src/users/users.service';
+import { FilesService } from 'src/files/files.service';
 import { IsNull, Not, Repository } from 'typeorm';
 import { CustomLoggerService } from 'src/common/logger/logger.service';
 import { AuditService } from 'src/common/audit/audit.service';
 import { CreateOrganizationRequestDto } from './dto/create-organization-request.dto';
+import { UpdateOrganizationRequestDto } from './dto/update-organization-request.dto';
 import { CreateResourceShortageDto } from './dto/create-resource-shortage.dto';
 import { CreateRouteReportDto } from './dto/create-route-report.dto';
 import { RegisterVolunteerDto } from './dto/register-volunteer.dto';
+import { JoinGroupDto } from './dto/join-group.dto';
 import { UpdateTaskProgressDto } from './dto/update-task-progress.dto';
 import { UpdateVolunteerLocationDto } from './dto/update-volunteer-location.dto';
 import { UpdateVolunteerProfileDto } from './dto/update-volunteer-profile.dto';
 import { FieldReport } from './entities/field-report.entity';
 import { OrganizationVolunteerRequest } from './entities/organization-volunteer-request.entity';
 import { VolunteerOrganizationJoin } from './entities/volunteer-organization-join.entity';
+import { VolunteerGroupJoin } from './entities/volunteer-group-join.entity';
 import { VolunteerTask } from './entities/volunteer-task.entity';
 import { Volunteer } from './entities/volunteer.entity';
 import {
   FieldReportType,
+  GroupTargetType,
   OrganizationRequestStatus,
   ReportSeverity,
+  VolunteerSkill,
   VolunteerTaskStatus,
   VolunteerVerificationStatus,
 } from './enums/volunteer-status.enum';
@@ -50,17 +57,23 @@ export class VolunteersService {
     private readonly organizationRequestRepo: Repository<OrganizationVolunteerRequest>,
     @InjectRepository(VolunteerOrganizationJoin)
     private readonly organizationJoinRepo: Repository<VolunteerOrganizationJoin>,
+    @InjectRepository(VolunteerGroupJoin)
+    private readonly groupJoinRepo: Repository<VolunteerGroupJoin>,
     @InjectRepository(RescueRequest)
     private readonly rescueRequestRepo: Repository<RescueRequest>,
+    @InjectRepository(MissingPerson)
+    private readonly missingPersonRepo: Repository<MissingPerson>,
     @InjectRepository(Auth)
     private readonly authRepo: Repository<Auth>,
     private readonly usersService: UsersService,
+    private readonly filesService: FilesService,
     private readonly auditService: AuditService,
   ) {}
 
   async register(
     userId: string,
     dto: RegisterVolunteerDto,
+    nidFile?: Express.Multer.File,
   ): Promise<Volunteer> {
     const user = await this.usersService.getUserById(userId);
     if (!user) {
@@ -74,9 +87,29 @@ export class VolunteersService {
       throw new BadRequestException('Volunteer profile already exists');
     }
 
+    if (!dto.why_join || dto.why_join.trim() === '') {
+      throw new BadRequestException('why_join field is required');
+    }
+
+    let nid_card_url: string | null = null;
+    if (nidFile) {
+      const urls = await this.filesService.saveFiles([nidFile], {
+        subFolder: '/volunteers/nid',
+        allowedMimeTypes: [
+          'image/jpeg',
+          'image/png',
+          'image/jpg',
+          'application/pdf',
+        ],
+      });
+      nid_card_url = urls[0] ?? null;
+    }
+
     const volunteer = this.volunteerRepo.create({
       user_id: userId,
-      skills: this.cleanSkills(dto.skills ?? []),
+      skills: dto.skills ?? [],
+      why_join: dto.why_join,
+      nid_card_url,
       available: dto.available ?? false,
       verification_status: VolunteerVerificationStatus.NOT_APPLIED,
       on_duty: false,
@@ -104,11 +137,10 @@ export class VolunteersService {
     const volunteer = await this.getVolunteerByUserId(userId);
 
     if (dto.skills !== undefined) {
-      const skills = this.cleanSkills(dto.skills);
-      if (skills.length === 0) {
+      if (dto.skills.length === 0) {
         throw new BadRequestException('At least one rescue skill is required');
       }
-      volunteer.skills = skills;
+      volunteer.skills = dto.skills as VolunteerSkill[];
     }
 
     if (dto.available !== undefined) {
@@ -122,12 +154,34 @@ export class VolunteersService {
     return await this.volunteerRepo.save(volunteer);
   }
 
-  async applyForVerification(userId: string): Promise<Volunteer> {
+  async applyForVerification(
+    userId: string,
+    nidFile?: Express.Multer.File,
+  ): Promise<Volunteer> {
     const volunteer = await this.getVolunteerByUserId(userId);
 
     if (!volunteer.skills || volunteer.skills.length === 0) {
       throw new BadRequestException(
         'Add at least one rescue skill before applying for verification',
+      );
+    }
+
+    if (nidFile) {
+      const urls = await this.filesService.saveFiles([nidFile], {
+        subFolder: '/volunteers/nid',
+        allowedMimeTypes: [
+          'image/jpeg',
+          'image/png',
+          'image/jpg',
+          'application/pdf',
+        ],
+      });
+      volunteer.nid_card_url = urls[0] ?? volunteer.nid_card_url;
+    }
+
+    if (!volunteer.nid_card_url) {
+      throw new BadRequestException(
+        'NID card document (JPEG, PNG, JPG, or PDF) is required for verification',
       );
     }
 
@@ -141,6 +195,7 @@ export class VolunteersService {
     this.auditService.setUpdated(volunteer, userId);
     return await this.volunteerRepo.save(volunteer);
   }
+
 
   async reviewVerification(
     volunteerId: string,
@@ -513,14 +568,80 @@ export class VolunteersService {
       organization_user_id: organizationUserId,
       title: dto.title,
       description: dto.description,
-      required_skills: this.cleanSkills(dto.required_skills),
+      required_skills: this.cleanSkills(dto.required_skills || []),
       location: dto.location,
       needed_volunteers: dto.needed_volunteers,
-      status: OrganizationRequestStatus.OPEN,
+      disaster_name: dto.disaster_name || null,
+      status: dto.status || OrganizationRequestStatus.OPEN,
     });
 
     this.auditService.setCreated(request, organizationUserId);
     return await this.organizationRequestRepo.save(request);
+  }
+
+  async getMyCreatedOrganizationRequests(
+    organizationUserId: string,
+  ): Promise<any[]> {
+    const requests = await this.organizationRequestRepo.find({
+      where: { organization_user_id: organizationUserId },
+      order: { created_at: 'DESC' },
+    });
+
+    return await Promise.all(
+      requests.map(async (req) => {
+        const joinedCount = await this.organizationJoinRepo.count({
+          where: { organization_request_id: req.id },
+        });
+        return {
+          ...req,
+          joined_volunteers: joinedCount,
+        };
+      }),
+    );
+  }
+
+  async updateOrganizationRequest(
+    organizationUserId: string,
+    id: string,
+    dto: UpdateOrganizationRequestDto,
+  ): Promise<OrganizationVolunteerRequest> {
+    const request = await this.organizationRequestRepo.findOne({
+      where: { id },
+    });
+    if (!request) {
+      throw new NotFoundException('Organization volunteer request not found');
+    }
+    if (request.organization_user_id !== organizationUserId) {
+      throw new ForbiddenException('You can only update your own volunteer requests');
+    }
+
+    if (dto.title) request.title = dto.title;
+    if (dto.description) request.description = dto.description;
+    if (dto.location) request.location = dto.location;
+    if (dto.needed_volunteers) request.needed_volunteers = dto.needed_volunteers;
+    if (dto.required_skills) request.required_skills = this.cleanSkills(dto.required_skills);
+    if (dto.disaster_name !== undefined) request.disaster_name = dto.disaster_name;
+    if (dto.status) request.status = dto.status;
+
+    this.auditService.setUpdated(request, organizationUserId);
+    return await this.organizationRequestRepo.save(request);
+  }
+
+  async deleteOrganizationRequest(
+    organizationUserId: string,
+    id: string,
+  ): Promise<OrganizationVolunteerRequest> {
+    const request = await this.organizationRequestRepo.findOne({
+      where: { id },
+    });
+    if (!request) {
+      throw new NotFoundException('Organization volunteer request not found');
+    }
+    if (request.organization_user_id !== organizationUserId) {
+      throw new ForbiddenException('You can only delete your own volunteer requests');
+    }
+
+    return await this.organizationRequestRepo.remove(request);
   }
 
   async getOpenOrganizationRequests(
@@ -620,6 +741,99 @@ export class VolunteersService {
       order: { joined_at: 'DESC' },
     });
   }
+
+  async joinRescueGroup(
+    userId: string,
+    requestId: string,
+    dto: JoinGroupDto,
+  ): Promise<VolunteerGroupJoin> {
+    const volunteer = await this.getVerifiedVolunteer(userId);
+
+    if (!dto.why_join || dto.why_join.trim() === '') {
+      throw new BadRequestException('why_join field is required');
+    }
+
+    const rescueRequest = await this.rescueRequestRepo.findOne({
+      where: { id: requestId },
+    });
+    if (!rescueRequest) {
+      throw new NotFoundException('Rescue request not found');
+    }
+
+    const existingJoin = await this.groupJoinRepo.findOne({
+      where: {
+        volunteer_id: volunteer.id,
+        target_type: GroupTargetType.RESCUE_REQUEST,
+        target_id: requestId,
+      },
+    });
+    if (existingJoin) {
+      throw new BadRequestException(
+        'You have already submitted a join request for this rescue group',
+      );
+    }
+
+    const joinRequest = this.groupJoinRepo.create({
+      volunteer_id: volunteer.id,
+      target_type: GroupTargetType.RESCUE_REQUEST,
+      target_id: requestId,
+      why_join: dto.why_join,
+    });
+
+    this.auditService.setCreated(joinRequest, userId);
+    return await this.groupJoinRepo.save(joinRequest);
+  }
+
+  async joinMissingPersonGroup(
+    userId: string,
+    missingPersonId: string,
+    dto: JoinGroupDto,
+  ): Promise<VolunteerGroupJoin> {
+    const volunteer = await this.getVerifiedVolunteer(userId);
+
+    if (!dto.why_join || dto.why_join.trim() === '') {
+      throw new BadRequestException('why_join field is required');
+    }
+
+    const missingPerson = await this.missingPersonRepo.findOne({
+      where: { id: missingPersonId },
+    });
+    if (!missingPerson) {
+      throw new NotFoundException('Missing person report not found');
+    }
+
+    const existingJoin = await this.groupJoinRepo.findOne({
+      where: {
+        volunteer_id: volunteer.id,
+        target_type: GroupTargetType.MISSING_PERSON,
+        target_id: missingPersonId,
+      },
+    });
+    if (existingJoin) {
+      throw new BadRequestException(
+        'You have already submitted a join request for this missing person group',
+      );
+    }
+
+    const joinRequest = this.groupJoinRepo.create({
+      volunteer_id: volunteer.id,
+      target_type: GroupTargetType.MISSING_PERSON,
+      target_id: missingPersonId,
+      why_join: dto.why_join,
+    });
+
+    this.auditService.setCreated(joinRequest, userId);
+    return await this.groupJoinRepo.save(joinRequest);
+  }
+
+  async getMyGroupJoins(userId: string): Promise<VolunteerGroupJoin[]> {
+    const volunteer = await this.getVolunteerByUserId(userId);
+    return await this.groupJoinRepo.find({
+      where: { volunteer_id: volunteer.id },
+      order: { created_at: 'DESC' },
+    });
+  }
+
 
   private async getVolunteerByUserId(userId: string): Promise<Volunteer> {
     const volunteer = await this.volunteerRepo.findOne({

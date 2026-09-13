@@ -36,6 +36,9 @@ export class OrganizationVolunteerRequest extends AuditEntity {
   @Column({ type: 'int', default: 1 })
   needed_volunteers: number;
 
+  @Column({ type: 'varchar', nullable: true })
+  disaster_name: string | null;
+
   @Column({
     type: 'enum',
     enum: OrganizationRequestStatus,

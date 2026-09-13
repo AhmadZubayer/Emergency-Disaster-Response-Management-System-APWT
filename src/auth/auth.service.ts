@@ -46,10 +46,10 @@ export class AuthService {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    // 1. Create user profile in 'users' table
+  
     const createdUser = await this.usersService.createUser(registerUserDto);
 
-    // 2. Create credentials record in 'auth' table
+   
     const authRecord = this.authRepo.create({
       user_id: createdUser.id,
       email: registerUserDto.email,
@@ -222,16 +222,28 @@ export class AuthService {
       relations: { user: true },
     });
 
-    if (!authRecord) {
+    if (authRecord) {
+      return {
+        id: authRecord.user_id,
+        name: authRecord.user?.name || authRecord.email.split('@')[0],
+        email: authRecord.email,
+        role: authRecord.role,
+        phone: authRecord.user?.phone,
+      };
+    }
+
+    const user = await this.usersService.getUserById(userId);
+    if (!user) {
       throw new UnauthorizedException('User not found');
     }
 
     return {
-      id: authRecord.user_id,
-      name: authRecord.user?.name || authRecord.email.split('@')[0],
-      email: authRecord.email,
-      role: authRecord.role,
-      phone: authRecord.user?.phone,
+      id: user.id,
+      name: user.name,
+      email: user.auth?.email,
+      role: user.auth?.role || 'USER',
+      phone: user.phone,
     };
   }
 }
+

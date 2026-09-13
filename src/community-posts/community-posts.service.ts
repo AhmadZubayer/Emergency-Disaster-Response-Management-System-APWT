@@ -21,6 +21,9 @@ import { ReportPostDto } from './dto/report-post.dto';
 import { FilesService } from 'src/files/files.service';
 import { UsersService } from 'src/users/users.service';
 import { Users } from 'src/users/entities/users.entity';
+import { AuditService, AuditTask } from 'src/common/audit/audit.service';
+import { TrashService } from 'src/trash/trash.service';
+import { TrashItemType } from 'src/trash/enums/trash-item-type.enum';
 
 @Injectable()
 export class CommunityPostsService {
@@ -35,6 +38,8 @@ export class CommunityPostsService {
     private readonly reportRepo: Repository<CommunityPostReport>,
     private readonly filesService: FilesService,
     private readonly usersService: UsersService,
+    private readonly auditService: AuditService,
+    private readonly trashService: TrashService,
   ) {}
 
   formatPostedBy(user?: Users | null) {
@@ -110,6 +115,7 @@ export class CommunityPostsService {
       bumped_at: new Date(),
     });
 
+    this.auditService.setCreated(post, authorId);
     const savedPost = await this.postRepo.save(post);
 
     if (files && files.length > 0) {
@@ -133,6 +139,12 @@ export class CommunityPostsService {
       savedPost.media_urls = uploadedUrls;
       await this.postRepo.save(savedPost);
     }
+
+    await this.auditService.logAudit(
+      AuditTask.CREATE,
+      authorId,
+      `Created community post ID: ${savedPost.id} title: ${savedPost.title}`,
+    );
 
     const fullPost = await this.postRepo.findOne({
       where: { id: savedPost.id },
@@ -303,7 +315,14 @@ export class CommunityPostsService {
       post.media_urls = [...(post.media_urls || []), ...uploadedUrls];
     }
 
+    this.auditService.setUpdated(post, userId);
     const updatedPost = await this.postRepo.save(post);
+    await this.auditService.logAudit(
+      AuditTask.UPDATE,
+      userId,
+      `Updated community post ID: ${id}`,
+    );
+
     return {
       postId: updatedPost.id,
       postedBy: this.formatPostedBy(updatedPost.author),
@@ -347,7 +366,13 @@ export class CommunityPostsService {
     }
 
     post.status = dto.status;
+    this.auditService.setUpdated(post, userId);
     const savedPost = await this.postRepo.save(post);
+    await this.auditService.logAudit(
+      AuditTask.UPDATE,
+      userId,
+      `Updated status of community post ID: ${id} to ${dto.status}`,
+    );
 
     return {
       postId: savedPost.id,
@@ -371,7 +396,13 @@ export class CommunityPostsService {
     }
 
     post.bumped_at = new Date();
+    this.auditService.setUpdated(post, userId);
     const savedPost = await this.postRepo.save(post);
+    await this.auditService.logAudit(
+      AuditTask.UPDATE,
+      userId,
+      `Bumped community post ID: ${id}`,
+    );
 
     return {
       postId: savedPost.id,
@@ -394,10 +425,24 @@ export class CommunityPostsService {
       );
     }
 
-    post.status = PostStatus.REMOVED;
-    await this.postRepo.save(post);
+    await this.trashService.addToTrash(
+      userId,
+      TrashItemType.COMMUNITY_POST,
+      post.id,
+      post.title,
+      post,
+    );
 
-    return { message: 'Community post removed successfully' };
+    post.status = PostStatus.REMOVED;
+    this.auditService.setDeleted(post, userId);
+    await this.postRepo.save(post);
+    await this.auditService.logAudit(
+      AuditTask.DELETE,
+      userId,
+      `Moved community post ID: ${id} to trash`,
+    );
+
+    return { message: 'Community post moved to trash successfully' };
   }
 
   async react(postId: string, userId: string, dto: ReactPostDto) {
@@ -415,10 +460,22 @@ export class CommunityPostsService {
     if (existingReaction) {
       if (existingReaction.type === targetType) {
         await this.reactionRepo.remove(existingReaction);
+        await this.auditService.logAudit(
+          AuditTask.DELETE,
+          userId,
+          `Removed reaction on community post ID: ${postId}`,
+        );
         return { message: 'Reaction removed' };
       } else {
         existingReaction.type = targetType;
-        return await this.reactionRepo.save(existingReaction);
+        this.auditService.setUpdated(existingReaction, userId);
+        const savedReaction = await this.reactionRepo.save(existingReaction);
+        await this.auditService.logAudit(
+          AuditTask.UPDATE,
+          userId,
+          `Updated reaction on community post ID: ${postId} to ${targetType}`,
+        );
+        return savedReaction;
       }
     }
 
@@ -428,7 +485,15 @@ export class CommunityPostsService {
       type: targetType,
     });
 
-    return await this.reactionRepo.save(newReaction);
+    this.auditService.setCreated(newReaction, userId);
+    const savedReaction = await this.reactionRepo.save(newReaction);
+    await this.auditService.logAudit(
+      AuditTask.CREATE,
+      userId,
+      `Reacted with ${targetType} on community post ID: ${postId}`,
+    );
+
+    return savedReaction;
   }
 
   async addComment(postId: string, userId: string, dto: CreateCommentDto) {
@@ -443,7 +508,14 @@ export class CommunityPostsService {
       content: dto.content,
     });
 
+    this.auditService.setCreated(comment, userId);
     const savedComment = await this.commentRepo.save(comment);
+    await this.auditService.logAudit(
+      AuditTask.CREATE,
+      userId,
+      `Added comment ID: ${savedComment.id} on community post ID: ${postId}`,
+    );
+
     const user = await this.usersService.getUserById(userId);
 
     return {
@@ -483,7 +555,14 @@ export class CommunityPostsService {
       );
     }
 
+    this.auditService.setDeleted(comment, userId);
     await this.commentRepo.remove(comment);
+    await this.auditService.logAudit(
+      AuditTask.DELETE,
+      userId,
+      `Deleted comment ID: ${commentId} on community post ID: ${postId}`,
+    );
+
     return { message: 'Comment deleted successfully' };
   }
 
@@ -499,6 +578,14 @@ export class CommunityPostsService {
       reason: dto.reason,
     });
 
-    return await this.reportRepo.save(report);
+    this.auditService.setCreated(report, reporterId);
+    const savedReport = await this.reportRepo.save(report);
+    await this.auditService.logAudit(
+      AuditTask.CREATE,
+      reporterId,
+      `Reported community post ID: ${postId} reason: ${dto.reason}`,
+    );
+
+    return savedReport;
   }
 }

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
+import { AuditService, AuditTask } from 'src/common/audit/audit.service';
 
 export interface SaveFileOptions {
   subFolder: string;
@@ -11,6 +12,8 @@ export interface SaveFileOptions {
 @Injectable()
 export class FilesService {
   private readonly baseUploadPath = path.join(process.cwd(), 'user-files');
+
+  constructor(private readonly auditService: AuditService) {}
 
   async saveFiles(
     files: Express.Multer.File[],
@@ -52,6 +55,12 @@ export class FilesService {
 
       const relativeUrl = `/user-files${options.subFolder}/${filename}`.replace(/\\/g, '/');
       urls.push(relativeUrl);
+
+      this.auditService.logAudit(
+        AuditTask.CREATE,
+        null,
+        `Uploaded file: ${relativeUrl}`,
+      ).catch(() => {});
     }
 
     return urls;
@@ -64,6 +73,11 @@ export class FilesService {
       const fullPath = path.join(this.baseUploadPath, cleanPath);
       if (fs.existsSync(fullPath)) {
         await fs.promises.unlink(fullPath);
+        this.auditService.logAudit(
+          AuditTask.DELETE,
+          null,
+          `Deleted file: ${relativePath}`,
+        ).catch(() => {});
         return true;
       }
     } catch {

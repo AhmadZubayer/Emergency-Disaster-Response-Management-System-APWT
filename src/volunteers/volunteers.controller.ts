@@ -1,23 +1,29 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseFloatPipe,
   Patch,
   Post,
   Query,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { roles } from 'src/auth/decorators/roles.decorator';
 import { JwtGuard } from 'src/auth/guards/access-jwt-guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { USER_ROLE } from 'src/auth/types/user-roles.type';
 import { CreateOrganizationRequestDto } from './dto/create-organization-request.dto';
+import { UpdateOrganizationRequestDto } from './dto/update-organization-request.dto';
 import { CreateResourceShortageDto } from './dto/create-resource-shortage.dto';
 import { CreateRouteReportDto } from './dto/create-route-report.dto';
 import { RegisterVolunteerDto } from './dto/register-volunteer.dto';
+import { JoinGroupDto } from './dto/join-group.dto';
 import { ReviewVolunteerVerificationDto } from './dto/review-volunteer-verification.dto';
 import { UpdateTaskProgressDto } from './dto/update-task-progress.dto';
 import { UpdateVolunteerLocationDto } from './dto/update-volunteer-location.dto';
@@ -31,12 +37,15 @@ export class VolunteersController {
   constructor(private readonly volunteersService: VolunteersService) {}
 
   @Post('register')
+  @UseInterceptors(FilesInterceptor('file'))
   @ResponseMessage('Volunteer registered successfully')
   register(
     @CurrentUser('id') userId: string,
     @Body() dto: RegisterVolunteerDto,
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
-    return this.volunteersService.register(userId, dto);
+    const file = files && files.length > 0 ? files[0] : undefined;
+    return this.volunteersService.register(userId, dto, file);
   }
 
   @Get('me')
@@ -55,9 +64,14 @@ export class VolunteersController {
   }
 
   @Post('verification/apply')
+  @UseInterceptors(FilesInterceptor('file'))
   @ResponseMessage('Verification application submitted successfully')
-  applyForVerification(@CurrentUser('id') userId: string) {
-    return this.volunteersService.applyForVerification(userId);
+  applyForVerification(
+    @CurrentUser('id') userId: string,
+    @UploadedFiles() files?: Express.Multer.File[],
+  ) {
+    const file = files && files.length > 0 ? files[0] : undefined;
+    return this.volunteersService.applyForVerification(userId, file);
   }
 
   @Patch(':id/verification')
@@ -170,6 +184,48 @@ export class VolunteersController {
     );
   }
 
+  @Get('organization-requests/my-created')
+  @UseGuards(RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ResponseMessage('My created organization requests retrieved successfully')
+  getMyCreatedOrganizationRequests(
+    @CurrentUser('id') organizationUserId: string,
+  ) {
+    return this.volunteersService.getMyCreatedOrganizationRequests(
+      organizationUserId,
+    );
+  }
+
+  @Patch('organization-requests/:id')
+  @UseGuards(RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ResponseMessage('Organization request updated successfully')
+  updateOrganizationRequest(
+    @CurrentUser('id') organizationUserId: string,
+    @Param('id') id: string,
+    @Body() dto: UpdateOrganizationRequestDto,
+  ) {
+    return this.volunteersService.updateOrganizationRequest(
+      organizationUserId,
+      id,
+      dto,
+    );
+  }
+
+  @Delete('organization-requests/:id')
+  @UseGuards(RolesGuard)
+  @roles(USER_ROLE.RELIEF_ORG, USER_ROLE.ADMIN)
+  @ResponseMessage('Organization request deleted successfully')
+  deleteOrganizationRequest(
+    @CurrentUser('id') organizationUserId: string,
+    @Param('id') id: string,
+  ) {
+    return this.volunteersService.deleteOrganizationRequest(
+      organizationUserId,
+      id,
+    );
+  }
+
   @Get('organization-requests')
   @ResponseMessage('Open organization requests retrieved successfully')
   getOpenOrganizationRequests(@CurrentUser('id') userId: string) {
@@ -190,4 +246,35 @@ export class VolunteersController {
   getMyOrganizationRequests(@CurrentUser('id') userId: string) {
     return this.volunteersService.getMyOrganizationRequests(userId);
   }
+
+  @Post('rescue-groups/:id/join')
+  @ResponseMessage('Joined rescue group successfully')
+  joinRescueGroup(
+    @CurrentUser('id') userId: string,
+    @Param('id') requestId: string,
+    @Body() dto: JoinGroupDto,
+  ) {
+    return this.volunteersService.joinRescueGroup(userId, requestId, dto);
+  }
+
+  @Post('missing-person-groups/:id/join')
+  @ResponseMessage('Joined missing person group successfully')
+  joinMissingPersonGroup(
+    @CurrentUser('id') userId: string,
+    @Param('id') missingPersonId: string,
+    @Body() dto: JoinGroupDto,
+  ) {
+    return this.volunteersService.joinMissingPersonGroup(
+      userId,
+      missingPersonId,
+      dto,
+    );
+  }
+
+  @Get('group-joins/my')
+  @ResponseMessage('User group join requests retrieved successfully')
+  getMyGroupJoins(@CurrentUser('id') userId: string) {
+    return this.volunteersService.getMyGroupJoins(userId);
+  }
 }
+

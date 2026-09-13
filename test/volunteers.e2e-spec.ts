@@ -13,7 +13,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { JwtGuard } from 'src/auth/guards/access-jwt-guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
-import { VolunteerTaskStatus } from 'src/volunteers/enums/volunteer-status.enum';
+import { VolunteerSkill, VolunteerTaskStatus } from 'src/volunteers/enums/volunteer-status.enum';
 import { VolunteersController } from 'src/volunteers/volunteers.controller';
 import { VolunteersService } from 'src/volunteers/volunteers.service';
 
@@ -79,6 +79,17 @@ describe('VolunteersController (e2e)', () => {
         requestId,
       })),
       getMyOrganizationRequests: jest.fn(async () => []),
+      joinRescueGroup: jest.fn(async (userId, requestId, dto) => ({
+        userId,
+        requestId,
+        ...dto,
+      })),
+      joinMissingPersonGroup: jest.fn(async (userId, missingPersonId, dto) => ({
+        userId,
+        missingPersonId,
+        ...dto,
+      })),
+      getMyGroupJoins: jest.fn(async () => []),
     };
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -107,17 +118,33 @@ describe('VolunteersController (e2e)', () => {
     await app.init();
   });
 
-  it('registers a volunteer with rescue skills', async () => {
+  it('registers a volunteer with rescue skills and why_join', async () => {
     await request(app.getHttpServer())
       .post('/volunteers/register')
       .send({
-        skills: ['first aid', 'swimming'],
+        skills: [VolunteerSkill.FIRST_AID, VolunteerSkill.FLOOD_RESCUE],
+        why_join: 'I have emergency medical training and want to help',
         available: true,
       })
       .expect(201)
       .expect((response) => {
         expect(response.body.userId).toBe('user-1');
-        expect(response.body.skills).toEqual(['first aid', 'swimming']);
+        expect(response.body.skills).toEqual([VolunteerSkill.FIRST_AID, VolunteerSkill.FLOOD_RESCUE]);
+        expect(response.body.why_join).toBe('I have emergency medical training and want to help');
+      });
+  });
+
+  it('joins a rescue group with why_join field', async () => {
+    await request(app.getHttpServer())
+      .post('/volunteers/rescue-groups/request-1/join')
+      .send({
+        why_join: 'I have flood rescue experience',
+      })
+      .expect(201)
+      .expect((response) => {
+        expect(response.body.userId).toBe('user-1');
+        expect(response.body.requestId).toBe('request-1');
+        expect(response.body.why_join).toBe('I have flood rescue experience');
       });
   });
 
@@ -191,3 +218,4 @@ describe('VolunteersController (e2e)', () => {
     await app.close();
   });
 });
+

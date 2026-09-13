@@ -8,6 +8,7 @@ import { CommunityPostReaction } from './entities/community-post-reaction.entity
 import { CommunityPostReport } from './entities/community-post-report.entity';
 import { FilesModule } from 'src/files/files.module';
 import { UsersModule } from 'src/users/users.module';
+import { TrashModule } from 'src/trash/trash.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { UsersModule } from 'src/users/users.module';
     ]),
     FilesModule,
     UsersModule,
+    TrashModule,
   ],
   controllers: [CommunityPostsController],
   providers: [CommunityPostsService],

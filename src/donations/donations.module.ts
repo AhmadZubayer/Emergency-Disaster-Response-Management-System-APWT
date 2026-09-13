@@ -8,6 +8,7 @@ import {
   DonationTransaction,
 } from './entities';
 import { MailerModule } from 'src/mailer/mailer.module';
+import { FilesModule } from 'src/files/files.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { MailerModule } from 'src/mailer/mailer.module';
       DonationApplication,
     ]),
     MailerModule,
+    FilesModule,
   ],
   controllers: [DonationsController],
   providers: [DonationsService],

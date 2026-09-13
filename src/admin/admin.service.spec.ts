@@ -2,7 +2,6 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { USER_ROLE } from 'src/auth/types/user-roles.type';
 import { VolunteerVerificationStatus } from 'src/volunteers/enums/volunteer-status.enum';
-import { VerificationStatus } from 'src/relief-org/entities/relief-org.entity';
 import { PostStatus } from 'src/community-posts/enums/post-status.enum';
 
 describe('AdminService', () => {
@@ -76,11 +75,11 @@ describe('AdminService', () => {
   });
 
   it('verifies a relief organization', async () => {
-    reliefOrgRepo.findOne.mockResolvedValue({ verificationStatus: VerificationStatus.PENDING });
+    reliefOrgRepo.findOne.mockResolvedValue({ admin_verified: false });
 
     const result = await service.verifyReliefOrg('org-1', 'verified');
 
-    expect(result.verificationStatus).toBe(VerificationStatus.VERIFIED);
+    expect(result.admin_verified).toBe(true);
   });
 
   it('moderates a community post to archived', async () => {

@@ -12,6 +12,25 @@ async function bootstrap() {
     logger,
   });
 
+  app.enableCors({
+    origin: true,
+    credentials: true,
+  });
+
+  app.use((req: any, res: any, next: any) => {
+    if (req.headers.cookie) {
+      req.cookies = Object.fromEntries(
+        req.headers.cookie.split('; ').map((c: string) => {
+          const [k, ...v] = c.split('=');
+          return [k, decodeURIComponent(v.join('='))];
+        }),
+      );
+    } else {
+      req.cookies = {};
+    }
+    next();
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -19,8 +38,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
-
+  app.setGlobalPrefix('api');
   setupSwagger(app);
+
 
   const dataSource = app.get(DataSource);
   const configService = app.get(ConfigService);
@@ -31,6 +51,7 @@ async function bootstrap() {
     logger.logStartup(`EDRMS Server Listening on Port: ${port}`);
     logger.logStartup(`Swagger UI available at: http://localhost:${port}/api/docs`);
   }
+  
   await app.listen(port);
 }
 bootstrap();

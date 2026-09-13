@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
-import { ArrayNotEmpty, IsArray, IsInt, IsString, Min } from 'class-validator';
+import { IsArray, IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { OrganizationRequestStatus } from '../enums/volunteer-status.enum';
 
 export class CreateOrganizationRequestDto {
   @IsString()
@@ -9,9 +10,9 @@ export class CreateOrganizationRequestDto {
   description: string;
 
   @IsArray()
-  @ArrayNotEmpty()
   @IsString({ each: true })
-  required_skills: string[];
+  @IsOptional()
+  required_skills?: string[];
 
   @IsString()
   location: string;
@@ -20,4 +21,12 @@ export class CreateOrganizationRequestDto {
   @IsInt()
   @Min(1)
   needed_volunteers: number;
+
+  @IsOptional()
+  @IsString()
+  disaster_name?: string;
+
+  @IsOptional()
+  @IsEnum(OrganizationRequestStatus)
+  status?: OrganizationRequestStatus;
 }

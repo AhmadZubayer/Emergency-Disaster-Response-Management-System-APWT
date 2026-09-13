@@ -235,13 +235,12 @@ export class AdminService {
     return this.buildPaginationResult(items, total, page, limit);
   }
 
-  async createDisaster(dto: { disaster_name: string; disaster_type: string; impacted_location: string; impact_time?: string; severity_level?: string; is_verified?: boolean }) {
+  async createDisaster(dto: { disaster_name: string; disaster_type?: string; type?: string; impacted_location: string; impact_time?: string; severity_level?: string; is_verified?: boolean }) {
     const disaster = this.disasterRepo.create({
       disaster_name: dto.disaster_name,
-      disaster_type: dto.disaster_type as any,
+      type: dto.type || dto.disaster_type || 'flood',
       impacted_location: dto.impacted_location,
       impact_time: dto.impact_time ? new Date(dto.impact_time) : new Date(),
-      severity_level: dto.severity_level || 'MEDIUM',
       is_verified: dto.is_verified ?? true,
     });
     return this.disasterRepo.save(disaster);
@@ -272,14 +271,15 @@ export class AdminService {
     return this.buildPaginationResult(items, total, page, limit);
   }
 
-  async createRescueRequest(dto: { requester_name?: string; contact_phone?: string; location: string; urgency_level?: string; details?: string }) {
+  async createRescueRequest(dto: { requester_name?: string; contact_phone?: string; location?: string; address?: string; urgency_level?: string; details?: string; description?: string }) {
     const request = this.rescueRequestRepo.create({
-      requester_name: dto.requester_name || 'Anonymous',
       contact_phone: dto.contact_phone || '+8801700000000',
-      location: dto.location,
+      address: dto.address || dto.location || 'Unknown Location',
+      latitude: 23.8103,
+      longitude: 90.4125,
       urgency_level: (dto.urgency_level?.toUpperCase() as UrgencyLevel) || UrgencyLevel.HIGH,
       status: RescueStatus.PENDING,
-      details: dto.details || '',
+      description: dto.description || dto.details || 'Emergency Rescue Call',
     });
     return this.rescueRequestRepo.save(request);
   }

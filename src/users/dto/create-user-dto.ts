@@ -27,6 +27,22 @@ export class CreateUsersDto {
   address?: AddressDto;
 
   @IsOptional()
+  @IsString()
+  house?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @IsOptional()
+  @IsString()
+  country?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   gps_lat?: number;
@@ -44,3 +60,4 @@ export class CreateUsersDto {
   @IsString()
   medical_information?: string;
 }
+

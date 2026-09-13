@@ -7,7 +7,7 @@ import {
   OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { VolunteerVerificationStatus } from '../enums/volunteer-status.enum';
+import { VolunteerSkill, VolunteerVerificationStatus } from '../enums/volunteer-status.enum';
 
 @Entity('volunteers')
 export class Volunteer extends AuditEntity {
@@ -22,7 +22,13 @@ export class Volunteer extends AuditEntity {
   user: Users;
 
   @Column('simple-array')
-  skills: string[];
+  skills: VolunteerSkill[];
+
+  @Column({ type: 'text', nullable: false })
+  why_join: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  nid_card_url: string | null;
 
   @Column({ type: 'boolean', default: false })
   available: boolean;
@@ -46,3 +52,4 @@ export class Volunteer extends AuditEntity {
   @Column({ type: 'timestamp', nullable: true })
   last_location_update: Date | null;
 }
+
