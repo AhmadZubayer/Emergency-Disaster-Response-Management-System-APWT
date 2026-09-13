@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
@@ -45,8 +46,8 @@ export class RescueRequestsController {
 
   @Get()
   @ResponseMessage('Rescue requests retrieved successfully')
-  async findAll() {
-    return await this.rescueService.findAll();
+  async findAll(@Query('search') search?: string) {
+    return await this.rescueService.findAll(search);
   }
 
   @Get(':id')

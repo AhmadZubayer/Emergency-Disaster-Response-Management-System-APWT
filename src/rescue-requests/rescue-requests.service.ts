@@ -82,11 +82,21 @@ export class RescueRequestsService {
     return request;
   }
 
-  async findAll(): Promise<RescueRequest[]> {
-    return await this.rescueRepository.find({
-      relations: { user: true },
-      order: { created_at: 'DESC' },
-    });
+  async findAll(search?: string): Promise<RescueRequest[]> {
+    if (!search || !search.trim()) {
+      return await this.rescueRepository.find({
+        relations: { user: true },
+        order: { created_at: 'DESC' },
+      });
+    }
+    const qb = this.rescueRepository.createQueryBuilder('rr')
+      .leftJoinAndSelect('rr.user', 'user')
+      .where(
+        '(rr.address ILIKE :search OR rr.description ILIKE :search OR rr.contact_phone ILIKE :search OR rr.status::text ILIKE :search OR rr.urgency_level::text ILIKE :search)',
+        { search: `%${search.trim()}%` }
+      )
+      .orderBy('rr.created_at', 'DESC');
+    return await qb.getMany();
   }
 
   async update(

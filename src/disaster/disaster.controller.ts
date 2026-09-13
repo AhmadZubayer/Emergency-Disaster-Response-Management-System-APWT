@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Body,
+  Query,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -40,8 +41,8 @@ export class DisasterController {
 
   @Get()
   @ResponseMessage('Disaster alerts retrieved successfully')
-  findAll() {
-    return this.disasterService.findAll();
+  findAll(@Query('search') search?: string) {
+    return this.disasterService.findAll(search);
   }
 
   @Get(':id')

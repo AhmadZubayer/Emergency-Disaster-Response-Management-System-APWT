@@ -5,11 +5,11 @@ import {
   Param,
   Patch,
   Post,
-  UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiConsumes,
@@ -35,10 +35,10 @@ export class ReliefOrgController {
   @Post('sign-up-as-relief-org')
   @UseGuards(JwtGuard)
   @ApiBearerAuth()
-  @UseInterceptors(FileInterceptor('verification_doc'))
+  @UseInterceptors(FilesInterceptor('verification_docs', 10))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
-    summary: 'Apply/Sign up as a Relief Organization (PDF document required)',
+    summary: 'Apply/Sign up as a Relief Organization with verification documents',
   })
   @ApiResponse({
     status: 201,
@@ -48,9 +48,9 @@ export class ReliefOrgController {
   signUpAsReliefOrg(
     @CurrentUser('id') userId: string,
     @Body() dto: SignUpReliefOrgDto,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return this.reliefOrgService.signUpAsReliefOrg(userId, dto, file);
+    return this.reliefOrgService.signUpAsReliefOrg(userId, dto, files);
   }
 
   @Patch(':id/verify')

@@ -32,10 +32,10 @@ export class ReliefOrgService {
   async signUpAsReliefOrg(
     userId: string,
     dto: SignUpReliefOrgDto,
-    file?: Express.Multer.File,
+    files?: Express.Multer.File[],
   ): Promise<ReliefOrg> {
-    if (!file) {
-      throw new BadRequestException('Verification document (PDF format) is required');
+    if (!files || files.length === 0) {
+      throw new BadRequestException('At least one verification document is required (PDF, PNG, JPG)');
     }
 
     const existingUserOrg = await this.reliefOrgRepo.findOne({
@@ -58,9 +58,15 @@ export class ReliefOrgService {
       );
     }
 
-    const uploadedUrls = await this.filesService.saveFiles([file], {
+    const uploadedUrls = await this.filesService.saveFiles(files, {
       subFolder: '/relief-org-docs',
-      allowedMimeTypes: ['application/pdf'],
+      allowedMimeTypes: [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+      ],
       customFileName: `relief-org-doc-${userId}-${Date.now()}`,
     });
 
@@ -69,10 +75,13 @@ export class ReliefOrgService {
       organization_name: dto.organization_name,
       registration_number: dto.registration_number,
       address: dto.address,
+      contact_email: dto.contact_email || null,
+      contact_phone: dto.contact_phone || null,
       website: dto.website || null,
       description: dto.description || null,
       organization_type: dto.organization_type || null,
       verification_doc: uploadedUrls[0],
+      verification_docs: uploadedUrls,
       admin_verified: false,
     });
 

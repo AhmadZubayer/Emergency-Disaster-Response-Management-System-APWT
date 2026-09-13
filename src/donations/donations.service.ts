@@ -55,10 +55,19 @@ export class DonationsService {
     }
   }
 
-  async getCampaigns(): Promise<DonationCampaign[]> {
-    return this.campaignRepository.find({
-      order: { created_at: 'DESC' },
-    });
+  async getCampaigns(search?: string): Promise<DonationCampaign[]> {
+    if (!search || !search.trim()) {
+      return this.campaignRepository.find({
+        order: { created_at: 'DESC' },
+      });
+    }
+    const qb = this.campaignRepository.createQueryBuilder('c')
+      .where(
+        '(c.title ILIKE :search OR c.description ILIKE :search)',
+        { search: `%${search.trim()}%` }
+      )
+      .orderBy('c.created_at', 'DESC');
+    return await qb.getMany();
   }
 
   async getCampaignById(id: string): Promise<any> {

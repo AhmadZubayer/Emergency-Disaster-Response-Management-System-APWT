@@ -55,10 +55,19 @@ export class DisasterService {
 		return saved;
 	}
 
-	async findAll(): Promise<Disaster[]> {
-		return await this.disasterRepo.find({
-			order: { created_at: 'DESC' },
-		});
+	async findAll(search?: string): Promise<Disaster[]> {
+		if (!search || !search.trim()) {
+			return await this.disasterRepo.find({
+				order: { created_at: 'DESC' },
+			});
+		}
+		const qb = this.disasterRepo.createQueryBuilder('d')
+			.where(
+				'(d.disaster_name ILIKE :search OR d.impacted_location ILIKE :search OR d.type ILIKE :search)',
+				{ search: `%${search.trim()}%` }
+			)
+			.orderBy('d.created_at', 'DESC');
+		return await qb.getMany();
 	}
 
 	async findOne(id: string): Promise<Disaster> {

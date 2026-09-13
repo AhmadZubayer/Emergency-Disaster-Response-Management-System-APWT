@@ -18,9 +18,19 @@ export class SignUpReliefOrgDto {
   @IsNotEmpty()
   address: string;
 
+  @ApiPropertyOptional({ example: 'contact@redcross.org.bd' })
+  @IsOptional()
+  @IsString()
+  contact_email?: string;
+
+  @ApiPropertyOptional({ example: '+8801712345678' })
+  @IsOptional()
+  @IsString()
+  contact_phone?: string;
+
   @ApiPropertyOptional({ example: 'https://redcross.org.bd' })
   @IsOptional()
-  @IsUrl()
+  @IsString()
   website?: string;
 
   @ApiPropertyOptional({ example: 'Providing emergency relief and disaster management assistance.' })

@@ -32,6 +32,12 @@ export class ReliefOrg extends AuditEntity {
   address: string;
 
   @Column({ type: 'varchar', nullable: true })
+  contact_email: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  contact_phone: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
   website: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -40,8 +46,11 @@ export class ReliefOrg extends AuditEntity {
   @Column({ type: 'varchar', nullable: true })
   organization_type: string | null;
 
-  @Column({ type: 'varchar' })
-  verification_doc: string;
+  @Column({ type: 'varchar', nullable: true })
+  verification_doc: string | null;
+
+  @Column('simple-array', { nullable: true })
+  verification_docs: string[];
 
   @Column({ type: 'boolean', default: false })
   admin_verified: boolean;

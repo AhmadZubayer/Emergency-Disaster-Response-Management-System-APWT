@@ -82,8 +82,8 @@ export class DonationsController {
 
   @Get('campaigns')
   @ResponseMessage('Donation campaigns retrieved successfully')
-  async getCampaigns() {
-    return this.donationsService.getCampaigns();
+  async getCampaigns(@Query('search') search?: string) {
+    return this.donationsService.getCampaigns(search);
   }
 
   @Get('campaigns/:id')
