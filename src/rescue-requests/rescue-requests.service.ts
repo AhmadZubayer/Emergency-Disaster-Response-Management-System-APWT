@@ -13,6 +13,8 @@ import { UpdateRescueRequestStatusDto } from './dto/update-rescue-request-status
 import { FilesService } from 'src/files/files.service';
 import { CustomLoggerService } from 'src/common/logger/logger.service';
 import { AuditService, AuditTask } from 'src/common/audit/audit.service';
+import { TrashService } from 'src/trash/trash.service';
+import { TrashItemType } from 'src/trash/enums/trash-item-type.enum';
 
 @Injectable()
 export class RescueRequestsService {
@@ -23,6 +25,7 @@ export class RescueRequestsService {
     private readonly rescueRepository: Repository<RescueRequest>,
     private readonly filesService: FilesService,
     private readonly auditService: AuditService,
+    private readonly trashService: TrashService,
   ) {}
 
   async create(
@@ -165,9 +168,15 @@ export class RescueRequestsService {
     const request = await this.findOne(id);
     this.checkPermission(request, userId, role);
 
-    if (request.photo_url) {
-      await this.filesService.deleteFile(request.photo_url);
-    }
+    await this.trashService.addToTrash(
+      userId,
+      TrashItemType.RESCUE_REQUEST,
+      request.id,
+      request.address
+        ? `Rescue needed in ${request.address}`
+        : `Rescue request (${request.urgency_level})`,
+      request,
+    );
 
     this.auditService.setDeleted(request, userId);
     await this.rescueRepository.remove(request);
@@ -175,10 +184,10 @@ export class RescueRequestsService {
     await this.auditService.logAudit(
       AuditTask.DELETE,
       userId,
-      `Deleted rescue request ID: ${id}`,
+      `Moved rescue request ID: ${id} to trash`,
     );
 
-    return { message: `Rescue request "${id}" has been deleted.` };
+    return { message: `Rescue request "${id}" has been moved to trash.` };
   }
 
   private checkPermission(

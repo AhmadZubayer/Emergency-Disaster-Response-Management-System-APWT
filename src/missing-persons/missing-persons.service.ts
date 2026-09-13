@@ -16,6 +16,8 @@ import { UpdateMissingPersonStatusDto } from './dto/update-missing-person-status
 import { FilesService } from 'src/files/files.service';
 import { UsersService } from 'src/users/users.service';
 import { AuditService, AuditTask } from 'src/common/audit/audit.service';
+import { TrashService } from 'src/trash/trash.service';
+import { TrashItemType } from 'src/trash/enums/trash-item-type.enum';
 
 @Injectable()
 export class MissingPersonsService {
@@ -25,6 +27,7 @@ export class MissingPersonsService {
     private readonly filesService: FilesService,
     private readonly usersService: UsersService,
     private readonly auditService: AuditService,
+    private readonly trashService: TrashService,
   ) {}
 
   async create(
@@ -190,19 +193,23 @@ export class MissingPersonsService {
     const report = await this.findOne(id);
     this.checkPermission(report, reporterId, role);
 
-    if (report.photo_url) {
-      await this.filesService.deleteFile(report.photo_url);
-    }
+    await this.trashService.addToTrash(
+      reporterId,
+      TrashItemType.MISSING_PERSON,
+      report.id,
+      `Missing report for ${report.full_name}`,
+      report,
+    );
 
     this.auditService.setDeleted(report, reporterId);
     await this.missingPersonRepository.remove(report);
     await this.auditService.logAudit(
       AuditTask.DELETE,
       reporterId,
-      `Deleted missing person report ID: ${id}`,
+      `Moved missing person report ID: ${id} to trash`,
     );
 
-    return { message: `Missing person report "${id}" has been deleted.` };
+    return { message: `Missing person report "${id}" has been moved to trash.` };
   }
 
   private checkPermission(

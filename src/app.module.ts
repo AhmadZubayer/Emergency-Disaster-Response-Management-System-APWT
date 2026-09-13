@@ -20,6 +20,7 @@ import { DisasterModule } from './disaster/disaster.module';
 import { VolunteersModule } from './volunteers/volunteers.module';
 import { ShelterModule } from './shelter/shelter.module';
 import { AdminModule } from './admin/admin.module';
+import { TrashModule } from './trash/trash.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { AdminModule } from './admin/admin.module';
     VolunteersModule,
     ShelterModule,
     AdminModule,
+    TrashModule,
   ],
   controllers: [AppController],
   providers: [AppService],

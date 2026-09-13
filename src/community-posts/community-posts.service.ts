@@ -22,6 +22,8 @@ import { FilesService } from 'src/files/files.service';
 import { UsersService } from 'src/users/users.service';
 import { Users } from 'src/users/entities/users.entity';
 import { AuditService, AuditTask } from 'src/common/audit/audit.service';
+import { TrashService } from 'src/trash/trash.service';
+import { TrashItemType } from 'src/trash/enums/trash-item-type.enum';
 
 @Injectable()
 export class CommunityPostsService {
@@ -37,6 +39,7 @@ export class CommunityPostsService {
     private readonly filesService: FilesService,
     private readonly usersService: UsersService,
     private readonly auditService: AuditService,
+    private readonly trashService: TrashService,
   ) {}
 
   formatPostedBy(user?: Users | null) {
@@ -422,16 +425,24 @@ export class CommunityPostsService {
       );
     }
 
+    await this.trashService.addToTrash(
+      userId,
+      TrashItemType.COMMUNITY_POST,
+      post.id,
+      post.title,
+      post,
+    );
+
     post.status = PostStatus.REMOVED;
     this.auditService.setDeleted(post, userId);
     await this.postRepo.save(post);
     await this.auditService.logAudit(
       AuditTask.DELETE,
       userId,
-      `Removed community post ID: ${id}`,
+      `Moved community post ID: ${id} to trash`,
     );
 
-    return { message: 'Community post removed successfully' };
+    return { message: 'Community post moved to trash successfully' };
   }
 
   async react(postId: string, userId: string, dto: ReactPostDto) {
