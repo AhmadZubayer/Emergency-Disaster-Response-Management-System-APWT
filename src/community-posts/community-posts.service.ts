@@ -153,8 +153,10 @@ export class CommunityPostsService {
 
     return {
       postId: savedPost.id,
+      author_id: savedPost.author_id,
       postedBy: this.formatPostedBy(fullPost?.author || user),
       created_at: savedPost.created_at,
+      updated_at: savedPost.updated_at,
       bumped_at: savedPost.bumped_at,
       title: savedPost.title,
       body: savedPost.body,
@@ -198,8 +200,10 @@ export class CommunityPostsService {
 
     return posts.map((post) => ({
       postId: post.id,
+      author_id: post.author_id,
       postedBy: this.formatPostedBy(post.author),
       created_at: post.created_at,
+      updated_at: post.updated_at,
       bumped_at: post.bumped_at,
       title: post.title,
       body: post.body,
@@ -237,8 +241,10 @@ export class CommunityPostsService {
 
     return {
       postId: post.id,
+      author_id: post.author_id,
       postedBy: this.formatPostedBy(post.author),
       created_at: post.created_at,
+      updated_at: post.updated_at,
       bumped_at: post.bumped_at,
       title: post.title,
       body: post.body,
@@ -325,8 +331,10 @@ export class CommunityPostsService {
 
     return {
       postId: updatedPost.id,
+      author_id: updatedPost.author_id,
       postedBy: this.formatPostedBy(updatedPost.author),
       created_at: updatedPost.created_at,
+      updated_at: updatedPost.updated_at,
       bumped_at: updatedPost.bumped_at,
       title: updatedPost.title,
       body: updatedPost.body,
