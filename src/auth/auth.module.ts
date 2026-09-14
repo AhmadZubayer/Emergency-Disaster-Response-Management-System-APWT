@@ -18,6 +18,9 @@ import { MailerModule } from 'src/mailer/mailer.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Auth } from './entities/auth.entity';
 
+import { GoogleStrategy } from './strategy/google.strategy';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
+
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
@@ -45,6 +48,8 @@ import { Auth } from './entities/auth.entity';
     RefreshJwtGuard,
     RefreshJwtStrategy,
     RolesGuard,
+    GoogleStrategy,
+    GoogleAuthGuard,
   ],
   exports: [
     AuthService,
@@ -52,6 +57,7 @@ import { Auth } from './entities/auth.entity';
     JwtGuard,
     RefreshJwtGuard,
     RolesGuard,
+    GoogleAuthGuard,
     PassportModule,
   ],
 })

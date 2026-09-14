@@ -7,11 +7,67 @@ import { signInUserDto } from './dto/sign-in-user.dto';
 import { RefreshJwtGuard } from './guards/refresh-jwt-guard';
 import { JwtGuard } from './guards/access-jwt-guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { ResponseMessage } from 'src/common/decorators/response-message.decorator';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Get('google')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuth(@Req() req) {
+    // Triggers Google OAuth redirect
+  }
+
+  @Get('google/callback')
+  @UseGuards(GoogleAuthGuard)
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
+    const userTokens = req.user as any;
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+
+    if (userTokens && userTokens.access_token) {
+      res.cookie('access_token', userTokens.access_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000,
+      });
+      res.cookie('refresh_token', userTokens.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      return res.redirect(
+        `${frontendUrl}/auth/callback?access_token=${userTokens.access_token}&refresh_token=${userTokens.refresh_token}`,
+      );
+    }
+
+    return res.redirect(`${frontendUrl}/sign-in?error=GoogleAuthFailed`);
+  }
+
+  @Post('google')
+  @ResponseMessage('Google authentication successful')
+  async googleSignIn(
+    @Body() dto: { email: string; name?: string; token?: string },
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.googleSignIn(dto);
+    res.cookie('access_token', tokens.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000,
+    });
+    res.cookie('refresh_token', tokens.refresh_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    return tokens;
+  }
 
   @Post('register-user')
   @ResponseMessage('User registered successfully. Please check your email for verification.')

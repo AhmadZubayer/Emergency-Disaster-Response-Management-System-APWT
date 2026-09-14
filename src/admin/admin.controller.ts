@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import { roles } from 'src/auth/decorators/roles.decorator';
 import { JwtGuard } from 'src/auth/guards/access-jwt-guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
 import { USER_ROLE } from 'src/auth/types/user-roles.type';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
@@ -41,6 +43,14 @@ export class AdminController {
       role,
       includeDeleted: includeDeleted === 'true',
     });
+  }
+
+  @Post('accounts')
+  @ApiOperation({ summary: 'Create a new account' })
+  createAccount(
+    @Body() dto: { name: string; email: string; password?: string; role?: string; phone?: string },
+  ) {
+    return this.adminService.createAccount(dto);
   }
 
   @Patch('accounts/:id/role')
@@ -116,6 +126,14 @@ export class AdminController {
     });
   }
 
+  @Post('disasters')
+  @ApiOperation({ summary: 'Create a disaster alert' })
+  createDisaster(
+    @Body() dto: { disaster_name: string; disaster_type: string; impacted_location: string; impact_time?: string; severity_level?: string; is_verified?: boolean },
+  ) {
+    return this.adminService.createDisaster(dto);
+  }
+
   @Patch('disasters/:id/verify')
   @ApiOperation({ summary: 'Verify a disaster report' })
   verifyDisaster(@Param('id') id: string, @Body('verified') verified: boolean) {
@@ -133,6 +151,15 @@ export class AdminController {
     @Query('status') status?: string,
   ) {
     return this.adminService.listRescueRequests({ page, limit, status });
+  }
+
+  @Post('rescue-requests')
+  @ApiOperation({ summary: 'Create an emergency rescue request' })
+  createRescueRequest(
+    @CurrentUser('id') adminUserId: string,
+    @Body() dto: { requester_name?: string; contact_phone?: string; location?: string; address?: string; urgency_level?: string; details?: string; description?: string; user_id?: string },
+  ) {
+    return this.adminService.createRescueRequest(dto, adminUserId);
   }
 
   @Get('community-posts')
@@ -180,5 +207,23 @@ export class AdminController {
   @ApiOperation({ summary: 'Generate an admin report summary' })
   generateReport() {
     return this.adminService.generateReport();
+  }
+
+  @Get('tables')
+  @ApiOperation({ summary: 'List all database tables with total record counts' })
+  listTables() {
+    return this.adminService.listTables();
+  }
+
+  @Get('tables/:tableName')
+  @ApiOperation({ summary: 'Retrieve raw data records from a specified database table' })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  getTableData(
+    @Param('tableName') tableName: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.adminService.getTableData(tableName, { page, limit });
   }
 }

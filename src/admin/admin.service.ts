@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Auth } from 'src/auth/entities/auth.entity';
 import { USER_ROLE } from 'src/auth/types/user-roles.type';
 import type { UserRole } from 'src/auth/types/user-roles.type';
@@ -8,7 +9,7 @@ import { Users } from 'src/users/entities/users.entity';
 import { Volunteer } from 'src/volunteers/entities/volunteer.entity';
 import { ReliefOrg } from 'src/relief-org/entities/relief-org.entity';
 import { Disaster } from 'src/disaster/entities/disaster.entity';
-import { RescueRequest, RescueStatus } from 'src/rescue-requests/entities/rescue-request.entity';
+import { RescueRequest, RescueStatus, UrgencyLevel } from 'src/rescue-requests/entities/rescue-request.entity';
 import { CommunityPost } from 'src/community-posts/entities/community-post.entity';
 import { PostStatus } from 'src/community-posts/enums/post-status.enum';
 import { VolunteerVerificationStatus } from 'src/volunteers/enums/volunteer-status.enum';
@@ -54,6 +55,7 @@ export class AdminService {
     @InjectRepository(Disaster) private readonly disasterRepo: Repository<Disaster>,
     @InjectRepository(RescueRequest) private readonly rescueRequestRepo: Repository<RescueRequest>,
     @InjectRepository(CommunityPost) private readonly communityPostRepo: Repository<CommunityPost>,
+    private readonly dataSource: DataSource,
   ) {}
 
   private getPagination(query: ListQuery) {
@@ -89,6 +91,37 @@ export class AdminService {
     });
 
     return this.buildPaginationResult(items, total, page, limit);
+  }
+
+  async createAccount(dto: { name: string; email: string; password?: string; role?: string; phone?: string }) {
+    const existing = await this.authRepo.findOne({ where: { email: dto.email } });
+    if (existing) {
+      throw new BadRequestException('Email already registered');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password || 'Password123!', 10);
+    const user = this.usersRepo.create({
+      name: dto.name,
+      phone: dto.phone || '+8801700000000',
+    });
+    const savedUser = await this.usersRepo.save(user);
+
+    const auth = this.authRepo.create({
+      user_id: savedUser.id,
+      email: dto.email,
+      password: passwordHash,
+      role: (dto.role?.toLowerCase() as UserRole) || USER_ROLE.USER,
+      email_verified: true,
+    });
+    const savedAuth = await this.authRepo.save(auth);
+
+    return {
+      id: savedAuth.id,
+      user_id: savedUser.id,
+      email: savedAuth.email,
+      role: savedAuth.role,
+      name: savedUser.name,
+    };
   }
 
   async updateAccountRole(id: string, role: string) {
@@ -152,12 +185,36 @@ export class AdminService {
     }
 
     const normalized = status.toLowerCase();
-    if (!Object.values(VolunteerVerificationStatus).includes(normalized as VolunteerVerificationStatus)) {
-      throw new BadRequestException('Unsupported volunteer verification status');
+    const isApproved = normalized === 'verified' || normalized === 'approved';
+    const isRejected = normalized === 'rejected';
+
+    if (isApproved) {
+      volunteer.verification_status = VolunteerVerificationStatus.VERIFIED;
+      volunteer.available = true;
+    } else if (isRejected) {
+      volunteer.verification_status = VolunteerVerificationStatus.REJECTED;
+      volunteer.available = false;
+      volunteer.on_duty = false;
+    } else {
+      volunteer.verification_status = VolunteerVerificationStatus.PENDING;
     }
 
-    volunteer.verification_status = normalized as VolunteerVerificationStatus;
-    return this.volunteerRepo.save(volunteer);
+    const saved = await this.volunteerRepo.save(volunteer);
+
+    const authRecord = await this.authRepo.findOne({
+      where: { user_id: volunteer.user_id },
+    });
+
+    if (authRecord) {
+      if (isApproved) {
+        authRecord.role = USER_ROLE.VOLUNTEER;
+      } else if (isRejected && authRecord.role === USER_ROLE.VOLUNTEER) {
+        authRecord.role = USER_ROLE.USER;
+      }
+      await this.authRepo.save(authRecord);
+    }
+
+    return saved;
   }
 
   async listReliefOrgs(query: ReliefOrgQuery) {
@@ -202,6 +259,17 @@ export class AdminService {
     return this.buildPaginationResult(items, total, page, limit);
   }
 
+  async createDisaster(dto: { disaster_name: string; disaster_type?: string; type?: string; impacted_location: string; impact_time?: string; severity_level?: string; is_verified?: boolean }) {
+    const disaster = this.disasterRepo.create({
+      disaster_name: dto.disaster_name,
+      type: dto.type || dto.disaster_type || 'flood',
+      impacted_location: dto.impacted_location,
+      impact_time: dto.impact_time ? new Date(dto.impact_time) : new Date(),
+      is_verified: dto.is_verified ?? true,
+    });
+    return this.disasterRepo.save(disaster);
+  }
+
   async verifyDisaster(id: string, verified: boolean) {
     const disaster = await this.disasterRepo.findOne({ where: { id } });
     if (!disaster) {
@@ -225,6 +293,33 @@ export class AdminService {
     });
 
     return this.buildPaginationResult(items, total, page, limit);
+  }
+
+  async createRescueRequest(
+    dto: { requester_name?: string; contact_phone?: string; location?: string; address?: string; urgency_level?: string; details?: string; description?: string; user_id?: string },
+    adminUserId?: string,
+  ) {
+    let userId = dto.user_id || adminUserId;
+    if (!userId) {
+      const firstUser = await this.usersRepo.findOne({ where: {} });
+      userId = firstUser?.id;
+    }
+
+    if (!userId) {
+      throw new BadRequestException('A valid user_id is required to create a rescue request');
+    }
+
+    const request = this.rescueRequestRepo.create({
+      user_id: userId,
+      contact_phone: dto.contact_phone || '+8801700000000',
+      address: dto.address || dto.location || 'Unknown Location',
+      latitude: 23.8103,
+      longitude: 90.4125,
+      urgency_level: (dto.urgency_level?.toUpperCase() as UrgencyLevel) || UrgencyLevel.HIGH,
+      status: RescueStatus.PENDING,
+      description: dto.description || dto.details || 'Emergency Rescue Call',
+    });
+    return this.rescueRequestRepo.save(request);
   }
 
   async listCommunityPosts(query: CommunityPostQuery) {
@@ -301,5 +396,39 @@ export class AdminService {
       posts,
       generatedAt: new Date(),
     };
+  }
+
+  async listTables() {
+    const entities = this.dataSource.entityMetadatas;
+    const tables = await Promise.all(
+      entities.map(async (meta) => {
+        const repo = this.dataSource.getRepository(meta.target);
+        const count = await repo.count();
+        return {
+          tableName: meta.tableName,
+          name: meta.name,
+          count,
+        };
+      })
+    );
+    return tables;
+  }
+
+  async getTableData(tableName: string, query: ListQuery) {
+    const meta = this.dataSource.entityMetadatas.find(
+      (m) => m.tableName === tableName || m.name.toLowerCase() === tableName.toLowerCase()
+    );
+    if (!meta) {
+      throw new NotFoundException(`Table metadata for ${tableName} not found`);
+    }
+
+    const { page, limit, skip } = this.getPagination(query);
+    const repo = this.dataSource.getRepository(meta.target);
+    const [items, total] = await repo.findAndCount({
+      skip,
+      take: limit,
+    });
+
+    return this.buildPaginationResult(items, total, page, limit);
   }
 }
